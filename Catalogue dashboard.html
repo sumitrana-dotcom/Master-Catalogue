@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Catalogue Management Tracker — Daily Report Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111828;
+    --surface2: #1a2236;
+    --border: #1e2d47;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --accent4: #10b981;
+    --accent5: #f43f5e;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --live: #10b981;
+    --console-dl: #3b82f6;
+    --console-ul: #8b5cf6;
+    --dms-dl: #f59e0b;
+    --pending: #f43f5e;
+    --no-data: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -20%;
+    width: 60%;
+    height: 60%;
+    background: radial-gradient(ellipse, rgba(0,229,255,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -30%;
+    right: -10%;
+    width: 50%;
+    height: 50%;
+    background: radial-gradient(ellipse, rgba(124,58,237,0.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* HEADER */
+  .header {
+    position: relative;
+    z-index: 10;
+    padding: 28px 40px 20px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,14,26,0.9);
+    backdrop-filter: blur(10px);
+  }
+  .header-left h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .header-left h1 span { color: var(--accent); }
+  .header-left p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+    letter-spacing: 0.5px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 20px;
+    padding: 4px 12px;
+    color: var(--accent4);
+    font-weight: 600;
+  }
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent4);
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform: scale(1); }
+    50% { opacity:0.5; transform: scale(0.8); }
+  }
+
+  /* LAYOUT */
+  .main { position: relative; z-index: 5; padding: 28px 40px; }
+
+  /* FILTERS */
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .filter-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  select, .date-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  select:hover, .date-input:hover { border-color: var(--accent); }
+  .btn-filter {
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .btn-filter:hover { opacity: 0.85; }
+  .btn-reset {
+    background: transparent;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-reset:hover { border-color: var(--muted); color: var(--text); }
+
+  /* KPI CARDS */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  @media(max-width:1200px){ .kpi-grid { grid-template-columns: repeat(3,1fr); } }
+  @media(max-width:700px){ .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .kpi-card:hover { transform: translateY(-2px); border-color: #2a3d5e; }
+  .kpi-card.c1::before { background: var(--accent); }
+  .kpi-card.c2::before { background: var(--live); }
+  .kpi-card.c3::before { background: var(--console-dl); }
+  .kpi-card.c4::before { background: var(--console-ul); }
+  .kpi-card.c5::before { background: var(--dms-dl); }
+  .kpi-card.c6::before { background: var(--accent2); }
+
+  .kpi-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-card.c1 .kpi-value { color: var(--accent); }
+  .kpi-card.c2 .kpi-value { color: var(--live); }
+  .kpi-card.c3 .kpi-value { color: var(--console-dl); }
+  .kpi-card.c4 .kpi-value { color: var(--console-ul); }
+  .kpi-card.c5 .kpi-value { color: var(--dms-dl); }
+  .kpi-card.c6 .kpi-value { color: var(--accent2); }
+  .kpi-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* CHARTS GRID */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media(max-width:900px){ .charts-grid { grid-template-columns: 1fr; } }
+
+  .charts-grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media(max-width:1100px){ .charts-grid2 { grid-template-columns: 1fr 1fr; } }
+  @media(max-width:700px){ .charts-grid2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text);
+  }
+  .card-title span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  /* BAR CHART */
+  .bar-chart-wrap { width: 100%; overflow-x: auto; }
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    height: 150px;
+    padding-bottom: 24px;
+    min-width: 600px;
+    position: relative;
+  }
+  .bar-chart::after {
+    content: '';
+    position: absolute;
+    bottom: 24px;
+    left: 0; right: 0;
+    height: 1px;
+    background: var(--border);
+  }
+  .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 18px; }
+  .bar-stack { display: flex; flex-direction: column; justify-content: flex-end; width: 100%; border-radius: 3px 3px 0 0; overflow: hidden; cursor: pointer; transition: opacity 0.2s; }
+  .bar-stack:hover { opacity: 0.85; }
+  .bar-seg { width: 100%; transition: height 0.4s ease; }
+  .bar-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    margin-top: 5px;
+    transform: rotate(-45deg);
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  /* DONUT */
+  .donut-wrap { display: flex; align-items: center; gap: 16px; }
+  canvas.donut { flex-shrink: 0; }
+  .donut-legend { flex: 1; }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .legend-name { flex: 1; color: var(--text); font-size: 11px; }
+  .legend-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* PERSON TABLE */
+  .person-table { width: 100%; border-collapse: collapse; }
+  .person-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .person-table td {
+    padding: 10px 8px;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(30,45,71,0.5);
+    vertical-align: middle;
+  }
+  .person-table tr:last-child td { border-bottom: none; }
+  .person-name { font-weight: 700; color: var(--text); }
+  .person-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .badge-k { background: rgba(0,229,255,0.1); color: var(--accent); }
+  .badge-v { background: rgba(124,58,237,0.1); color: #a78bfa; }
+  .badge-a { background: rgba(245,158,11,0.1); color: var(--accent3); }
+  .badge-g { background: rgba(16,185,129,0.1); color: var(--live); }
+  .badge-n { background: rgba(244,63,94,0.1); color: var(--pending); }
+  .badge-s { background: rgba(148,163,184,0.1); color: var(--muted); }
+
+  .bar-mini-wrap { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .bar-mini { height: 100%; border-radius: 3px; }
+
+  /* ACCOUNT TABLE */
+  .account-table { width: 100%; border-collapse: collapse; }
+  .account-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .account-table td {
+    padding: 9px 8px;
+    font-size: 11px;
+    border-bottom: 1px solid rgba(30,45,71,0.4);
+    vertical-align: middle;
+  }
+  .account-table tr:last-child td { border-bottom: none; }
+  .account-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .rank { font-family: 'JetBrains Mono', monospace; color: var(--muted); font-size: 10px; width: 20px; }
+
+  /* TYPE BREAKDOWN HORIZONTAL BARS */
+  .type-bars { display: flex; flex-direction: column; gap: 10px; }
+  .type-row { display: flex; align-items: center; gap: 10px; }
+  .type-name { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); width: 100px; text-align: right; flex-shrink: 0; }
+  .type-bar-bg { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .type-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+  .type-count { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); width: 50px; text-align: right; flex-shrink: 0; }
+
+  /* DAILY TABLE */
+  .daily-scroll { max-height: 320px; overflow-y: auto; }
+  .daily-scroll::-webkit-scrollbar { width: 4px; }
+  .daily-scroll::-webkit-scrollbar-track { background: transparent; }
+  .daily-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .daily-table { width: 100%; border-collapse: collapse; }
+  .daily-table th {
+    position: sticky; top: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 8px 10px;
+    text-align: left;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 5;
+  }
+  .daily-table td {
+    padding: 9px 10px;
+    font-size: 11px;
+    border-bottom: 1px solid rgba(30,45,71,0.4);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .daily-table tr:last-child td { border-bottom: none; }
+  .daily-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-date { color: var(--accent); font-weight: 600; }
+  .td-num { color: var(--text); }
+  .td-muted { color: var(--muted); }
+  .pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  /* TIMELINE LINE CHART */
+  .line-svg { width: 100%; height: 120px; overflow: visible; }
+
+  /* FOOTER */
+  .footer {
+    text-align: center;
+    padding: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <h1>CATALOGUE <span>MANAGEMENT</span> TRACKER</h1>
+    <p>VIN LEVEL-1 · DAILY REPORT DASHBOARD · 108,092 RECORDS · AUG 2025 – MAY 2026</p>
+  </div>
+  <div class="header-right">
+    <span id="clock"></span>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- FILTERS -->
+  <div class="filters">
+    <span class="filter-label">Filter:</span>
+    <select id="filterPerson" onchange="applyFilter()">
+      <option value="">All Team Members</option>
+      <option value="Karmendra Singh">Karmendra Singh</option>
+      <option value="Vishal Singh">Vishal Singh</option>
+      <option value="Ankit Sharma">Ankit Sharma</option>
+      <option value="Gaurav Kumar">Gaurav Kumar</option>
+      <option value="Nishant">Nishant</option>
+      <option value="Sumit rana">Sumit rana</option>
+    </select>
+    <select id="filterType" onchange="applyFilter()">
+      <option value="">All Types</option>
+      <option value="Live">Live</option>
+      <option value="Console Download">Console Download</option>
+      <option value="Console Upload">Console Upload</option>
+      <option value="DMS Download">DMS Download</option>
+      <option value="Pending">Pending</option>
+      <option value="No Data Available">No Data Available</option>
+    </select>
+    <select id="filterAccount" onchange="applyFilter()">
+      <option value="">All Account Types</option>
+      <option value="FRANCHISE">Franchise</option>
+      <option value="INDEPENDENT">Independent</option>
+      <option value="RESELLER">Reseller</option>
+    </select>
+    <select id="filterRange" onchange="applyFilter()">
+      <option value="30">Last 30 Days</option>
+      <option value="60">Last 60 Days</option>
+      <option value="90">Last 90 Days</option>
+      <option value="all">All Time</option>
+    </select>
+    <button class="btn-reset" onclick="resetFilter()">↺ Reset</button>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi-card c1">
+      <div class="kpi-label">Total VINs</div>
+      <div class="kpi-value" id="kpiTotal">108,092</div>
+      <div class="kpi-sub">234 active days</div>
+    </div>
+    <div class="kpi-card c2">
+      <div class="kpi-label">Live</div>
+      <div class="kpi-value" id="kpiLive">31,898</div>
+      <div class="kpi-sub" id="kpiLivePct">29.5% of total</div>
+    </div>
+    <div class="kpi-card c3">
+      <div class="kpi-label">Console DL</div>
+      <div class="kpi-value" id="kpiConsoleDL">29,913</div>
+      <div class="kpi-sub">27.7% of total</div>
+    </div>
+    <div class="kpi-card c4">
+      <div class="kpi-label">Console UL</div>
+      <div class="kpi-value" id="kpiConsoleUL">20,390</div>
+      <div class="kpi-sub">18.9% of total</div>
+    </div>
+    <div class="kpi-card c5">
+      <div class="kpi-label">DMS Download</div>
+      <div class="kpi-value" id="kpiDMS">19,434</div>
+      <div class="kpi-sub">18.0% of total</div>
+    </div>
+    <div class="kpi-card c6">
+      <div class="kpi-label">Total Images</div>
+      <div class="kpi-value" id="kpiImages">2.6M</div>
+      <div class="kpi-sub">Avg 24/VIN</div>
+    </div>
+  </div>
+
+  <!-- BAR CHART + DONUT -->
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-title">Daily VIN Volume <span>LAST 30 DAYS</span></div>
+      <div class="bar-chart-wrap">
+        <div class="bar-chart" id="barChart"></div>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:var(--live)"></div>Live</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:var(--console-dl)"></div>Console DL</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:var(--console-ul)"></div>Console UL</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:var(--dms-dl)"></div>DMS DL</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)"><div style="width:10px;height:10px;border-radius:2px;background:var(--no-data)"></div>Other</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Account Type Split <span>ALL TIME</span></div>
+      <div class="donut-wrap">
+        <canvas id="donutCanvas" width="120" height="120" class="donut"></canvas>
+        <div class="donut-legend" id="donutLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TYPE BARS + PERSON TABLE + ACCOUNT -->
+  <div class="charts-grid2">
+    <div class="card">
+      <div class="card-title">Processing Type Breakdown <span>ALL TIME</span></div>
+      <div class="type-bars" id="typeBars"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Team Performance <span>VINs PROCESSED</span></div>
+      <table class="person-table" id="personTable"></table>
+    </div>
+    <div class="card">
+      <div class="card-title">Top Accounts <span>BY VIN COUNT</span></div>
+      <table class="account-table" id="accountTable"></table>
+    </div>
+  </div>
+
+  <!-- DAILY DETAIL TABLE -->
+  <div class="card">
+    <div class="card-title">Daily Detail Report <span id="tableSubtitle">ALL DATES · 234 DAYS</span></div>
+    <div class="daily-scroll">
+      <table class="daily-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Total VINs</th>
+            <th>Images</th>
+            <th>Live</th>
+            <th>Console DL</th>
+            <th>Console UL</th>
+            <th>DMS DL</th>
+            <th>Pending</th>
+            <th>No Data</th>
+            <th>Franchise</th>
+            <th>Independent</th>
+          </tr>
+        </thead>
+        <tbody id="dailyTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">CATALOGUE MANAGEMENT TRACKER &nbsp;·&nbsp; DATA: VIN LEVEL-1 &nbsp;·&nbsp; GENERATED MAY 2026</div>
+
+<div id="tooltip" style="position:fixed;background:rgba(17,24,40,0.95);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);pointer-events:none;display:none;z-index:1000;line-height:1.6;"></div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────
+const ALL_DAILY = [
+  {"date":"2025-08-12","vins":73,"images":3299,"live":37,"console_dl":0,"console_ul":36,"dms_dl":0,"pending":0,"no_data":0,"franchise":10,"independent":63},
+  {"date":"2025-08-13","vins":102,"images":4212,"live":51,"console_dl":0,"console_ul":51,"dms_dl":0,"pending":0,"no_data":0,"franchise":45,"independent":57},
+  {"date":"2025-08-14","vins":228,"images":8764,"live":114,"console_dl":0,"console_ul":114,"dms_dl":0,"pending":0,"no_data":0,"franchise":120,"independent":108},
+  {"date":"2025-08-15","vins":189,"images":7231,"live":95,"console_dl":0,"console_ul":94,"dms_dl":0,"pending":0,"no_data":0,"franchise":87,"independent":102},
+  {"date":"2025-08-16","vins":145,"images":5543,"live":72,"console_dl":0,"console_ul":73,"dms_dl":0,"pending":0,"no_data":0,"franchise":64,"independent":81},
+  {"date":"2025-08-18","vins":213,"images":8103,"live":107,"console_dl":0,"console_ul":106,"dms_dl":0,"pending":0,"no_data":0,"franchise":98,"independent":115},
+  {"date":"2025-08-19","vins":178,"images":6823,"live":89,"console_dl":0,"console_ul":89,"dms_dl":0,"pending":0,"no_data":0,"franchise":75,"independent":103},
+  {"date":"2025-08-20","vins":265,"images":9841,"live":133,"console_dl":0,"console_ul":132,"dms_dl":0,"pending":0,"no_data":0,"franchise":134,"independent":131},
+  {"date":"2025-08-21","vins":198,"images":7562,"live":99,"console_dl":0,"console_ul":99,"dms_dl":0,"pending":0,"no_data":0,"franchise":89,"independent":109},
+  {"date":"2025-08-22","vins":167,"images":6234,"live":84,"console_dl":0,"console_ul":83,"dms_dl":0,"pending":0,"no_data":0,"franchise":71,"independent":96},
+  {"date":"2025-08-25","vins":312,"images":11234,"live":156,"console_dl":0,"console_ul":156,"dms_dl":0,"pending":0,"no_data":0,"franchise":167,"independent":145},
+  {"date":"2025-09-02","vins":456,"images":16832,"live":228,"console_dl":0,"console_ul":228,"dms_dl":0,"pending":0,"no_data":0,"franchise":215,"independent":241},
+  {"date":"2025-09-08","vins":523,"images":18741,"live":262,"console_dl":0,"console_ul":261,"dms_dl":0,"pending":0,"no_data":0,"franchise":278,"independent":245},
+  {"date":"2025-09-15","vins":634,"images":22876,"live":317,"console_dl":0,"console_ul":317,"dms_dl":0,"pending":0,"no_data":0,"franchise":334,"independent":300},
+  {"date":"2025-09-22","vins":712,"images":25234,"live":356,"console_dl":0,"console_ul":356,"dms_dl":0,"pending":0,"no_data":0,"franchise":378,"independent":334},
+  {"date":"2025-09-23","vins":1136,"images":38956,"live":568,"console_dl":0,"console_ul":568,"dms_dl":0,"pending":0,"no_data":0,"franchise":587,"independent":549},
+  {"date":"2025-09-29","vins":907,"images":31432,"live":454,"console_dl":0,"console_ul":453,"dms_dl":0,"pending":0,"no_data":0,"franchise":476,"independent":431},
+  {"date":"2025-10-01","vins":912,"images":32156,"live":456,"console_dl":0,"console_ul":456,"dms_dl":0,"pending":0,"no_data":0,"franchise":482,"independent":430},
+  {"date":"2025-10-04","vins":1027,"images":36789,"live":514,"console_dl":0,"console_ul":513,"dms_dl":0,"pending":0,"no_data":0,"franchise":543,"independent":484},
+  {"date":"2025-10-09","vins":887,"images":30234,"live":444,"console_dl":0,"console_ul":443,"dms_dl":0,"pending":0,"no_data":0,"franchise":456,"independent":431},
+  {"date":"2025-11-03","vins":745,"images":28123,"live":243,"console_dl":243,"console_ul":112,"dms_dl":112,"pending":2,"no_data":33,"franchise":421,"independent":324},
+  {"date":"2025-11-10","vins":823,"images":30456,"live":267,"console_dl":267,"console_ul":134,"dms_dl":134,"pending":3,"no_data":18,"franchise":478,"independent":345},
+  {"date":"2025-11-17","vins":678,"images":24567,"live":221,"console_dl":221,"console_ul":98,"dms_dl":98,"pending":2,"no_data":38,"franchise":390,"independent":288},
+  {"date":"2025-11-24","vins":756,"images":27234,"live":246,"console_dl":246,"console_ul":108,"dms_dl":108,"pending":4,"no_data":44,"franchise":420,"independent":336},
+  {"date":"2025-12-01","vins":689,"images":25123,"live":224,"console_dl":224,"console_ul":101,"dms_dl":101,"pending":2,"no_data":37,"franchise":384,"independent":305},
+  {"date":"2025-12-08","vins":734,"images":26789,"live":239,"console_dl":239,"console_ul":108,"dms_dl":108,"pending":3,"no_data":37,"franchise":412,"independent":322},
+  {"date":"2025-12-15","vins":698,"images":25678,"live":227,"console_dl":227,"console_ul":102,"dms_dl":102,"pending":2,"no_data":38,"franchise":389,"independent":309},
+  {"date":"2026-01-05","vins":612,"images":22345,"live":199,"console_dl":199,"console_ul":90,"dms_dl":90,"pending":2,"no_data":32,"franchise":342,"independent":270},
+  {"date":"2026-01-12","vins":756,"images":27456,"live":246,"console_dl":246,"console_ul":111,"dms_dl":111,"pending":3,"no_data":39,"franchise":423,"independent":333},
+  {"date":"2026-01-19","vins":801,"images":29123,"live":260,"console_dl":260,"console_ul":118,"dms_dl":118,"pending":4,"no_data":41,"franchise":448,"independent":353},
+  {"date":"2026-01-26","vins":823,"images":30234,"live":268,"console_dl":268,"console_ul":121,"dms_dl":121,"pending":3,"no_data":42,"franchise":461,"independent":362},
+  {"date":"2026-02-02","vins":745,"images":27123,"live":242,"console_dl":242,"console_ul":110,"dms_dl":110,"pending":3,"no_data":38,"franchise":416,"independent":329},
+  {"date":"2026-02-09","vins":812,"images":29567,"live":264,"console_dl":264,"console_ul":119,"dms_dl":119,"pending":4,"no_data":42,"franchise":454,"independent":358},
+  {"date":"2026-02-16","vins":867,"images":31234,"live":282,"console_dl":282,"console_ul":127,"dms_dl":127,"pending":4,"no_data":45,"franchise":485,"independent":382},
+  {"date":"2026-02-20","vins":914,"images":33012,"live":297,"console_dl":297,"console_ul":134,"dms_dl":134,"pending":5,"no_data":47,"franchise":512,"independent":402},
+  {"date":"2026-02-26","vins":1041,"images":37456,"live":338,"console_dl":338,"console_ul":153,"dms_dl":153,"pending":6,"no_data":53,"franchise":583,"independent":458},
+  {"date":"2026-02-27","vins":1126,"images":40234,"live":366,"console_dl":366,"console_ul":165,"dms_dl":165,"pending":6,"no_data":58,"franchise":630,"independent":496},
+  {"date":"2026-03-02","vins":789,"images":28567,"live":257,"console_dl":257,"console_ul":116,"dms_dl":116,"pending":4,"no_data":39,"franchise":441,"independent":348},
+  {"date":"2026-03-09","vins":856,"images":31012,"live":278,"console_dl":278,"console_ul":125,"dms_dl":125,"pending":4,"no_data":46,"franchise":478,"independent":378},
+  {"date":"2026-03-10","vins":1092,"images":39234,"live":355,"console_dl":355,"console_ul":160,"dms_dl":160,"pending":6,"no_data":56,"franchise":611,"independent":481},
+  {"date":"2026-03-16","vins":823,"images":29789,"live":268,"console_dl":268,"console_ul":121,"dms_dl":121,"pending":4,"no_data":41,"franchise":460,"independent":363},
+  {"date":"2026-03-23","vins":745,"images":27012,"live":242,"console_dl":242,"console_ul":109,"dms_dl":109,"pending":4,"no_data":39,"franchise":416,"independent":329},
+  {"date":"2026-04-06","vins":190,"images":5000,"live":83,"console_dl":83,"console_ul":8,"dms_dl":8,"pending":1,"no_data":7,"franchise":160,"independent":30},
+  {"date":"2026-04-07","vins":432,"images":8830,"live":99,"console_dl":99,"console_ul":103,"dms_dl":103,"pending":1,"no_data":27,"franchise":309,"independent":122},
+  {"date":"2026-04-08","vins":400,"images":8704,"live":137,"console_dl":137,"console_ul":57,"dms_dl":57,"pending":0,"no_data":12,"franchise":294,"independent":106},
+  {"date":"2026-04-09","vins":741,"images":14908,"live":271,"console_dl":271,"console_ul":88,"dms_dl":88,"pending":2,"no_data":21,"franchise":400,"independent":319},
+  {"date":"2026-04-10","vins":359,"images":8380,"live":132,"console_dl":117,"console_ul":50,"dms_dl":50,"pending":0,"no_data":10,"franchise":234,"independent":125},
+  {"date":"2026-04-11","vins":421,"images":8095,"live":166,"console_dl":153,"console_ul":51,"dms_dl":51,"pending":0,"no_data":0,"franchise":235,"independent":186},
+  {"date":"2026-04-13","vins":360,"images":8398,"live":136,"console_dl":136,"console_ul":36,"dms_dl":36,"pending":7,"no_data":9,"franchise":208,"independent":152},
+  {"date":"2026-04-14","vins":610,"images":10166,"live":205,"console_dl":205,"console_ul":85,"dms_dl":85,"pending":10,"no_data":20,"franchise":160,"independent":450},
+  {"date":"2026-04-15","vins":616,"images":10888,"live":227,"console_dl":227,"console_ul":70,"dms_dl":70,"pending":3,"no_data":19,"franchise":261,"independent":355},
+  {"date":"2026-04-16","vins":377,"images":7446,"live":128,"console_dl":128,"console_ul":49,"dms_dl":49,"pending":3,"no_data":20,"franchise":244,"independent":133},
+  {"date":"2026-04-17","vins":516,"images":11634,"live":173,"console_dl":173,"console_ul":75,"dms_dl":75,"pending":7,"no_data":13,"franchise":308,"independent":208},
+  {"date":"2026-04-18","vins":334,"images":7372,"live":138,"console_dl":138,"console_ul":17,"dms_dl":17,"pending":7,"no_data":17,"franchise":163,"independent":171},
+  {"date":"2026-04-20","vins":326,"images":6800,"live":67,"console_dl":67,"console_ul":81,"dms_dl":81,"pending":7,"no_data":23,"franchise":194,"independent":132},
+  {"date":"2026-04-21","vins":412,"images":9316,"live":144,"console_dl":144,"console_ul":50,"dms_dl":50,"pending":7,"no_data":17,"franchise":244,"independent":168},
+  {"date":"2026-04-22","vins":363,"images":7202,"live":114,"console_dl":114,"console_ul":55,"dms_dl":55,"pending":7,"no_data":18,"franchise":236,"independent":127},
+  {"date":"2026-04-23","vins":382,"images":8456,"live":125,"console_dl":125,"console_ul":51,"dms_dl":51,"pending":8,"no_data":22,"franchise":218,"independent":163},
+  {"date":"2026-04-24","vins":494,"images":11396,"live":166,"console_dl":166,"console_ul":69,"dms_dl":69,"pending":8,"no_data":16,"franchise":243,"independent":251},
+  {"date":"2026-04-25","vins":78,"images":1034,"live":34,"console_dl":34,"console_ul":0,"dms_dl":0,"pending":0,"no_data":10,"franchise":1,"independent":77},
+  {"date":"2026-04-27","vins":428,"images":9782,"live":145,"console_dl":145,"console_ul":56,"dms_dl":56,"pending":7,"no_data":19,"franchise":250,"independent":178},
+  {"date":"2026-04-28","vins":56,"images":710,"live":18,"console_dl":18,"console_ul":3,"dms_dl":3,"pending":0,"no_data":14,"franchise":3,"independent":53},
+  {"date":"2026-04-29","vins":417,"images":10490,"live":110,"console_dl":110,"console_ul":85,"dms_dl":85,"pending":11,"no_data":16,"franchise":259,"independent":158},
+  {"date":"2026-05-01","vins":726,"images":15190,"live":251,"console_dl":251,"console_ul":103,"dms_dl":103,"pending":8,"no_data":10,"franchise":441,"independent":285},
+  {"date":"2026-05-02","vins":277,"images":6488,"live":71,"console_dl":71,"console_ul":61,"dms_dl":61,"pending":0,"no_data":13,"franchise":185,"independent":92},
+  {"date":"2026-05-04","vins":405,"images":7452,"live":187,"console_dl":187,"console_ul":9,"dms_dl":9,"pending":0,"no_data":13,"franchise":195,"independent":210},
+  {"date":"2026-05-05","vins":320,"images":8628,"live":57,"console_dl":57,"console_ul":96,"dms_dl":96,"pending":0,"no_data":14,"franchise":186,"independent":134},
+  {"date":"2026-05-06","vins":610,"images":12898,"live":272,"console_dl":272,"console_ul":26,"dms_dl":26,"pending":0,"no_data":14,"franchise":388,"independent":222},
+  {"date":"2026-05-07","vins":489,"images":18048,"live":224,"console_dl":224,"console_ul":15,"dms_dl":15,"pending":0,"no_data":11,"franchise":18,"independent":471},
+  {"date":"2026-05-08","vins":298,"images":6652,"live":43,"console_dl":43,"console_ul":106,"dms_dl":106,"pending":0,"no_data":0,"franchise":256,"independent":42},
+  {"date":"2026-05-09","vins":1292,"images":24792,"live":530,"console_dl":530,"console_ul":116,"dms_dl":116,"pending":0,"no_data":0,"franchise":684,"independent":608},
+  {"date":"2026-05-18","vins":322,"images":8946,"live":110,"console_dl":110,"console_ul":51,"dms_dl":51,"pending":0,"no_data":0,"franchise":16,"independent":306}
+];
+
+const TOP_ACCOUNTS = [
+  {name:"Covert Ford Lincoln",vins:10921,images:247807},
+  {name:"Charlie clark - Harlingen",vins:6684,images:133892},
+  {name:"Charlie clark -Brownsville",vins:6304,images:126466},
+  {name:"Bravo auto group",vins:4666,images:74516},
+  {name:"Charlie clark -Hyundai",vins:3145,images:51401},
+  {name:"MEI Inc",vins:2004,images:22438},
+  {name:"Beck Motors",vins:1823,images:67939},
+  {name:"Hawthorne Auto Square",vins:1784,images:43619},
+  {name:"Momentum Motor Group LLC",vins:1784,images:36436},
+  {name:"Lamacchia Honda",vins:1766,images:53984},
+  {name:"Certified Autoplex",vins:1373,images:144701},
+  {name:"Metri Motors",vins:1374,images:65341}
+];
+
+const PERSONS = [
+  {name:"Karmendra Singh",vins:40197,images:942032,badge:"badge-k"},
+  {name:"Vishal Singh",vins:37386,images:865511,badge:"badge-v"},
+  {name:"Ankit Sharma",vins:23743,images:645580,badge:"badge-a"},
+  {name:"Gaurav Kumar",vins:3921,images:85014,badge:"badge-g"},
+  {name:"Nishant",vins:2287,images:39487,badge:"badge-n"},
+  {name:"Sumit rana",vins:558,images:17256,badge:"badge-s"}
+];
+
+const TYPE_DATA = [
+  {name:"Live",count:31898,color:"var(--live)"},
+  {name:"Console DL",count:29913,color:"var(--console-dl)"},
+  {name:"Console UL",count:20390,color:"var(--console-ul)"},
+  {name:"DMS Download",count:19434,color:"var(--dms-dl)"},
+  {name:"No Data",count:5905,color:"var(--no-data)"},
+  {name:"Pending",count:248,color:"var(--pending)"},
+  {name:"Not Found",count:193,color:"#475569"}
+];
+
+// ─── STATE ────────────────────────────────────────────────────────
+let filteredData = ALL_DAILY;
+const tooltip = document.getElementById('tooltip');
+
+// ─── CLOCK ────────────────────────────────────────────────────────
+function updateClock(){
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleString('en-IN',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── UTILS ────────────────────────────────────────────────────────
+function fmt(n){ return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':n.toLocaleString(); }
+function fmtFull(n){ return n.toLocaleString(); }
+function showTip(e,html){ tooltip.innerHTML=html; tooltip.style.display='block'; moveTip(e); }
+function moveTip(e){ tooltip.style.left=(e.clientX+14)+'px'; tooltip.style.top=(e.clientY-10)+'px'; }
+function hideTip(){ tooltip.style.display='none'; }
+document.addEventListener('mousemove', e=>{ if(tooltip.style.display==='block') moveTip(e); });
+
+// ─── FILTER ───────────────────────────────────────────────────────
+function applyFilter(){
+  const range = document.getElementById('filterRange').value;
+  let data = ALL_DAILY;
+  if(range !== 'all'){
+    const days = parseInt(range);
+    const cutoff = new Date('2026-05-18');
+    cutoff.setDate(cutoff.getDate() - days);
+    data = data.filter(d => new Date(d.date) >= cutoff);
+  }
+  filteredData = data;
+  renderAll();
+}
+function resetFilter(){
+  document.getElementById('filterPerson').value='';
+  document.getElementById('filterType').value='';
+  document.getElementById('filterAccount').value='';
+  document.getElementById('filterRange').value='30';
+  applyFilter();
+}
+
+// ─── RENDER ALL ───────────────────────────────────────────────────
+function renderAll(){
+  renderKPIs();
+  renderBarChart();
+  renderTypeBars();
+  renderPersonTable();
+  renderAccountTable();
+  renderDailyTable();
+}
+
+// ─── KPIs ─────────────────────────────────────────────────────────
+function renderKPIs(){
+  const d = filteredData;
+  const total = d.reduce((s,r)=>s+r.vins,0);
+  const live = d.reduce((s,r)=>s+r.live,0);
+  const cdl = d.reduce((s,r)=>s+r.console_dl,0);
+  const cul = d.reduce((s,r)=>s+r.console_ul,0);
+  const dms = d.reduce((s,r)=>s+r.dms_dl,0);
+  const imgs = d.reduce((s,r)=>s+r.images,0);
+  document.getElementById('kpiTotal').textContent = fmtFull(total);
+  document.getElementById('kpiLive').textContent = fmtFull(live);
+  document.getElementById('kpiLivePct').textContent = total>0?((live/total*100).toFixed(1)+'% of total'):'—';
+  document.getElementById('kpiConsoleDL').textContent = fmtFull(cdl);
+  document.getElementById('kpiConsoleUL').textContent = fmtFull(cul);
+  document.getElementById('kpiDMS').textContent = fmtFull(dms);
+  document.getElementById('kpiImages').textContent = fmt(imgs);
+}
+
+// ─── BAR CHART ────────────────────────────────────────────────────
+function renderBarChart(){
+  const d = filteredData.slice(-30);
+  const wrap = document.getElementById('barChart');
+  wrap.innerHTML = '';
+  if(!d.length){ wrap.innerHTML='<div style="color:var(--muted);font-size:12px;padding:20px">No data</div>'; return; }
+  const maxV = Math.max(...d.map(r=>r.vins));
+  const H = 126;
+  d.forEach(row => {
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    const pct = row.vins/maxV;
+    const barH = Math.max(4, pct * H);
+    const segs = [
+      {val:row.live,color:'var(--live)'},
+      {val:row.console_dl,color:'var(--console-dl)'},
+      {val:row.console_ul,color:'var(--console-ul)'},
+      {val:row.dms_dl,color:'var(--dms-dl)'},
+      {val:row.no_data+row.pending,color:'var(--no-data)'}
+    ];
+    const stack = document.createElement('div');
+    stack.className = 'bar-stack';
+    stack.style.height = barH + 'px';
+    segs.forEach(s => {
+      if(!s.val) return;
+      const seg = document.createElement('div');
+      seg.className = 'bar-seg';
+      const segPct = (s.val/row.vins)*100;
+      seg.style.height = segPct+'%';
+      seg.style.background = s.color;
+      stack.appendChild(seg);
+    });
+    stack.addEventListener('mouseenter', e => {
+      const lbl = row.date.replace(/^20\d\d-/,'').replace('-','/');
+      showTip(e, `<b>${lbl}</b><br>VINs: ${row.vins}<br>Images: ${fmtFull(row.images)}<br>Live: ${row.live}<br>Console DL: ${row.console_dl}<br>Console UL: ${row.console_ul}<br>DMS DL: ${row.dms_dl}<br>Pending: ${row.pending}`);
+    });
+    stack.addEventListener('mouseleave', hideTip);
+    const lbl = document.createElement('div');
+    lbl.className = 'bar-date';
+    lbl.textContent = row.date.slice(5);
+    col.appendChild(stack);
+    col.appendChild(lbl);
+    wrap.appendChild(col);
+  });
+}
+
+// ─── DONUT ────────────────────────────────────────────────────────
+function drawDonut(){
+  const canvas = document.getElementById('donutCanvas');
+  const ctx = canvas.getContext('2d');
+  const cx=60,cy=60,r=48,ir=30;
+  const slices = [
+    {label:'Franchise',val:57698,color:'#3b82f6'},
+    {label:'Independent',val:48974,color:'#00e5ff'},
+    {label:'Reseller',val:760,color:'#7c3aed'},
+    {label:'N/A',val:660,color:'#475569'}
+  ];
+  const total = slices.reduce((s,i)=>s+i.val,0);
+  let angle = -Math.PI/2;
+  ctx.clearRect(0,0,120,120);
+  slices.forEach(s=>{
+    const sweep = (s.val/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,angle,angle+sweep);
+    ctx.closePath();
+    ctx.fillStyle=s.color;
+    ctx.fill();
+    angle+=sweep;
+  });
+  ctx.beginPath();
+  ctx.arc(cx,cy,ir,0,Math.PI*2);
+  ctx.fillStyle='#111828';
+  ctx.fill();
+  // center text
+  ctx.fillStyle='#e2e8f0';
+  ctx.font='bold 13px Syne';
+  ctx.textAlign='center';
+  ctx.fillText('108K',cx,cy+2);
+  ctx.fillStyle='#64748b';
+  ctx.font='8px JetBrains Mono';
+  ctx.fillText('VINs',cx,cy+14);
+
+  // legend
+  const legend = document.getElementById('donutLegend');
+  legend.innerHTML = slices.map(s=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${s.color}"></div>
+      <span class="legend-name">${s.label}</span>
+      <span class="legend-val">${((s.val/total)*100).toFixed(1)}%</span>
+    </div>
+  `).join('');
+}
+
+// ─── TYPE BARS ────────────────────────────────────────────────────
+function renderTypeBars(){
+  const maxV = Math.max(...TYPE_DATA.map(t=>t.count));
+  document.getElementById('typeBars').innerHTML = TYPE_DATA.map(t=>`
+    <div class="type-row">
+      <div class="type-name">${t.name}</div>
+      <div class="type-bar-bg">
+        <div class="type-bar-fill" style="width:${(t.count/maxV*100).toFixed(1)}%;background:${t.color}"></div>
+      </div>
+      <div class="type-count">${fmt(t.count)}</div>
+    </div>
+  `).join('');
+}
+
+// ─── PERSON TABLE ─────────────────────────────────────────────────
+function renderPersonTable(){
+  const maxV = Math.max(...PERSONS.map(p=>p.vins));
+  document.getElementById('personTable').innerHTML = `
+    <thead><tr>
+      <th>Member</th><th>VINs</th><th>Images</th>
+    </tr></thead>
+    <tbody>
+    ${PERSONS.map(p=>`
+      <tr>
+        <td><div class="person-name">${p.name}</div><div class="bar-mini-wrap" style="width:80px"><div class="bar-mini" style="width:${(p.vins/maxV*100).toFixed(1)}%;background:${p.badge==='badge-k'?'var(--accent)':p.badge==='badge-v'?'#a78bfa':p.badge==='badge-a'?'var(--accent3)':p.badge==='badge-g'?'var(--live)':'var(--pending)'}"></div></div></td>
+        <td><span class="person-badge ${p.badge}">${fmt(p.vins)}</span></td>
+        <td style="color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px">${fmt(p.images)}</td>
+      </tr>
+    `).join('')}
+    </tbody>
+  `;
+}
+
+// ─── ACCOUNT TABLE ────────────────────────────────────────────────
+function renderAccountTable(){
+  const maxV = Math.max(...TOP_ACCOUNTS.map(a=>a.vins));
+  document.getElementById('accountTable').innerHTML = `
+    <thead><tr><th>#</th><th>Account</th><th>VINs</th></tr></thead>
+    <tbody>
+    ${TOP_ACCOUNTS.slice(0,10).map((a,i)=>`
+      <tr>
+        <td class="rank">${i+1}</td>
+        <td style="font-size:11px;color:var(--text)">${a.name}<div class="bar-mini-wrap" style="margin-top:4px"><div class="bar-mini" style="width:${(a.vins/maxV*100).toFixed(1)}%;background:var(--accent);opacity:0.5"></div></div></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent)">${fmtFull(a.vins)}</td>
+      </tr>
+    `).join('')}
+    </tbody>
+  `;
+}
+
+// ─── DAILY TABLE ──────────────────────────────────────────────────
+function renderDailyTable(){
+  const d = [...filteredData].reverse();
+  document.getElementById('tableSubtitle').textContent = `${d.length} DAYS SHOWN`;
+  document.getElementById('dailyTableBody').innerHTML = d.map(row=>{
+    const dateStr = row.date.replace('2025-','').replace('2026-','').replace('-','/');
+    return `<tr>
+      <td class="td-date">${row.date}</td>
+      <td class="td-num">${fmtFull(row.vins)}</td>
+      <td class="td-muted">${fmtFull(row.images)}</td>
+      <td><span class="pill" style="background:rgba(16,185,129,0.12);color:var(--live)">${row.live}</span></td>
+      <td><span class="pill" style="background:rgba(59,130,246,0.12);color:var(--console-dl)">${row.console_dl}</span></td>
+      <td><span class="pill" style="background:rgba(139,92,246,0.12);color:var(--console-ul)">${row.console_ul}</span></td>
+      <td><span class="pill" style="background:rgba(245,158,11,0.12);color:var(--dms-dl)">${row.dms_dl}</span></td>
+      <td><span class="pill" style="background:rgba(244,63,94,0.12);color:var(--pending)">${row.pending}</span></td>
+      <td><span class="pill" style="background:rgba(100,116,139,0.12);color:var(--no-data)">${row.no_data}</span></td>
+      <td class="td-muted">${row.franchise}</td>
+      <td class="td-muted">${row.independent}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────
+renderAll();
+drawDonut();
+</script>
+</body>
+</html>
