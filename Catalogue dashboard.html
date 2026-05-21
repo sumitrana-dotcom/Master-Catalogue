@@ -5,443 +5,795 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Master Catalogue Dashboard</title>
 <style>
-/* ── RESET & BASE ── */
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#07111f;color:#d0e4f5;min-height:100vh}
+:root{
+  --bg:#f0f4f9;--white:#fff;--border:#dadce0;--border2:#e8eaed;
+  --text:#202124;--text2:#5f6368;--text3:#9aa0a6;
+  --blue:#1a73e8;--blue-light:#e8f0fe;--blue-mid:#4285f4;
+  --green:#1e8e3e;--green-light:#e6f4ea;
+  --amber:#f29900;--amber-light:#fef7e0;
+  --red:#d93025;--red-light:#fce8e6;
+  --purple:#9334e6;--purple-light:#f3e8fd;
+  --teal:#129eaf;--teal-light:#e4f7fb;
+  --orange:#fa7b17;--orange-light:#feece3;
+  --gray:#80868b;--gray-light:#f1f3f4;
+  --header:#fff;--sidebar:#fff;
+  --chart1:#4285f4;--chart2:#34a853;--chart3:#fbbc04;--chart4:#ea4335;--chart5:#9334e6;--chart6:#129eaf;
+}
+body{font-family:'Google Sans',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
 
-/* ── HEADER ── */
-.hdr{background:#0a1628;border-bottom:2px solid #1a3050;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.hdr-left h1{font-size:18px;font-weight:800;color:#fff;letter-spacing:0.5px}
-.hdr-left h1 span{color:#00d4ff}
-.hdr-left p{font-size:11px;color:#5080a0;margin-top:3px;font-family:monospace}
-.hdr-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.badge{font-family:monospace;font-size:11px;padding:4px 12px;border-radius:5px;background:#0f1e32;border:1px solid #1a3050;color:#7090b0}
-.badge b{color:#00d4ff}
-.live-pill{display:flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:#00e676;font-size:11px;font-family:monospace;font-weight:700}
-.dot{width:7px;height:7px;border-radius:50%;background:#00e676;animation:blink 1.5s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-#clock{font-family:monospace;font-size:11px;color:#00d4ff}
+/* ── TOP NAV ── */
+.topnav{background:var(--header);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:200;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.nav-logo{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:500;color:var(--text);white-space:nowrap}
+.nav-logo-icon{width:32px;height:32px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex-shrink:0}
+.nav-title{font-size:16px;font-weight:600;color:var(--text)}
+.nav-sub{font-size:11px;color:var(--text2);margin-left:4px}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.nav-badge{background:var(--green-light);color:var(--green);font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;display:flex;align-items:center;gap:5px}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav-time{font-size:12px;color:var(--text2);font-family:monospace}
+.upload-btn-nav{background:var(--blue);color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .2s}
+.upload-btn-nav:hover{background:#1557b0}
 
-/* ── UPLOAD ── */
-.upload-wrap{padding:16px 28px}
-.upload-box{border:2px dashed #1a3050;border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:16px;background:#0a1628;cursor:pointer;transition:border-color .2s}
-.upload-box:hover{border-color:#00d4ff}
-.u-icon{width:40px;height:40px;border-radius:8px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.u-title{font-size:13px;font-weight:700;color:#fff;margin-bottom:2px}
-.u-sub{font-size:11px;color:#5080a0;font-family:monospace}
-.u-sub b{color:#00d4ff}
-.u-btn{margin-left:auto;background:#00d4ff;color:#07111f;font-size:12px;font-weight:700;padding:8px 18px;border:none;border-radius:7px;cursor:pointer;flex-shrink:0}
-.u-btn:hover{opacity:.85}
-.u-status{font-family:monospace;font-size:11px;color:#00e676;padding:4px 12px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:5px;display:none;flex-shrink:0}
-#fileInput{display:none}
+/* ── FILTER BAR ── */
+.filterbar{background:var(--white);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:56px;z-index:190}
+.filter-label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-right:4px}
+.fsel{border:1px solid var(--border);background:#fff;border-radius:20px;padding:5px 12px 5px 10px;font-size:12px;color:var(--text);outline:none;cursor:pointer;transition:border-color .2s;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235f6368'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:24px}
+.fsel:focus,.fsel:hover{border-color:var(--blue)}
+.date-input{border:1px solid var(--border);background:#fff;border-radius:20px;padding:5px 12px;font-size:12px;color:var(--text);outline:none;cursor:pointer}
+.date-input:focus{border-color:var(--blue)}
+.filter-sep{width:1px;height:24px;background:var(--border);margin:0 4px}
+.btn-apply{background:var(--blue);color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-reset{background:none;color:var(--text2);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;cursor:pointer}
+.active-filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--blue-light);color:var(--blue);border-radius:12px;padding:3px 10px;font-size:11px;font-weight:500}
+.chip-x{cursor:pointer;font-size:13px;line-height:1;opacity:.7}
+.chip-x:hover{opacity:1}
 
-/* ── MAIN ── */
-.main{padding:0 28px 28px}
+/* ── MAIN LAYOUT ── */
+.main{padding:20px 24px;max-width:1600px;margin:0 auto}
 
-/* ── SECTION LABEL ── */
-.sec{font-family:monospace;font-size:10px;color:#3a6080;letter-spacing:1.5px;text-transform:uppercase;padding:16px 0 10px;border-bottom:1px solid #0e1e30;margin-bottom:14px}
+/* ── SECTION HEADER ── */
+.sec-hd{display:flex;align-items:center;gap:8px;margin-bottom:14px;margin-top:8px}
+.sec-hd-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.sec-hd::after{content:'';flex:1;height:1px;background:var(--border2)}
 
-/* ── KPI GRID ── */
-.kpi-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:6px}
-@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(4,1fr)}}
-@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
-.kpi{background:#0a1628;border:1px solid #1a3050;border-radius:10px;padding:14px 16px;border-top:2px solid #1a3050}
-.kpi.c0{border-top-color:#00d4ff}
-.kpi.c1{border-top-color:#00e676}
-.kpi.c2{border-top-color:#4488ff}
-.kpi.c3{border-top-color:#b06cff}
-.kpi.c4{border-top-color:#ffb224}
-.kpi.c5{border-top-color:#ff4d6a}
-.kpi.c6{border-top-color:#a0b0c0}
-.kpi-lbl{font-family:monospace;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#3a6080;margin-bottom:6px}
-.kpi-val{font-size:26px;font-weight:800;line-height:1;margin-bottom:3px}
-.kpi.c0 .kpi-val{color:#00d4ff}
-.kpi.c1 .kpi-val{color:#00e676}
-.kpi.c2 .kpi-val{color:#4488ff}
-.kpi.c3 .kpi-val{color:#b06cff}
-.kpi.c4 .kpi-val{color:#ffb224}
-.kpi.c5 .kpi-val{color:#ff4d6a}
-.kpi.c6 .kpi-val{color:#a0b0c0}
-.kpi-sub{font-family:monospace;font-size:9px;color:#3a6080}
+/* ── SCORECARD GRID ── */
+.score-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:1400px){.score-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:800px){.score-grid{grid-template-columns:repeat(2,1fr)}}
+.score{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:16px;cursor:default;transition:box-shadow .15s;position:relative;overflow:hidden}
+.score:hover{box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.score-stripe{position:absolute;top:0;left:0;right:0;height:3px;border-radius:8px 8px 0 0}
+.score-label{font-size:11px;color:var(--text2);font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.score-label-icon{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px}
+.score-val{font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
+.score-meta{font-size:11px;color:var(--text3)}
+.score-delta{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;margin-left:4px}
+.delta-up{background:var(--green-light);color:var(--green)}
+.delta-dn{background:var(--red-light);color:var(--red)}
 
-/* ── CARDS ── */
-.card{background:#0a1628;border:1px solid #1a3050;border-radius:12px;padding:16px 18px}
-.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.card-title{font-size:12px;font-weight:700;color:#c0d8f0}
-.card-tag{font-family:monospace;font-size:9px;color:#3a6080;padding:2px 8px;border:1px solid #1a3050;border-radius:4px}
+/* ── CHART GRID ── */
+.chart-row{display:grid;gap:14px;margin-bottom:14px}
+.row-2{grid-template-columns:2fr 1fr}
+.row-3{grid-template-columns:1fr 1fr 1fr}
+.row-2-eq{grid-template-columns:1fr 1fr}
+.row-full{grid-template-columns:1fr}
+@media(max-width:1100px){.row-2,.row-3,.row-2-eq{grid-template-columns:1fr}}
 
-/* ── LAYOUTS ── */
-.row2{display:grid;grid-template-columns:1fr 300px;gap:12px;margin-bottom:12px}
-.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
-@media(max-width:1000px){.row2,.row3{grid-template-columns:1fr}}
+.panel{background:var(--white);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.panel-hd{padding:14px 18px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2)}
+.panel-title{font-size:13px;font-weight:600;color:var(--text)}
+.panel-sub{font-size:11px;color:var(--text3)}
+.panel-body{padding:16px 18px}
+.panel-body-np{padding:0}
+
+/* ── LINE CHART ── */
+.linechart-wrap{position:relative;height:200px;width:100%}
+svg.linechart{width:100%;height:100%;overflow:visible}
 
 /* ── BAR CHART ── */
-.bar-outer{overflow-x:auto}
-.bar-chart{display:flex;align-items:flex-end;gap:4px;height:130px;padding-bottom:22px;min-width:480px;position:relative}
-.bar-chart::after{content:'';position:absolute;bottom:22px;left:0;right:0;height:1px;background:#132030}
-.bar-col{display:flex;flex-direction:column;align-items:center;flex:1;min-width:12px;cursor:pointer}
-.bar-stk{display:flex;flex-direction:column;justify-content:flex-end;width:100%;border-radius:3px 3px 0 0;overflow:hidden}
-.bar-stk:hover{opacity:.75}
+.barchart-wrap{position:relative;height:180px;display:flex;align-items:flex-end;gap:3px;padding-bottom:28px}
+.bar-col{display:flex;flex-direction:column;align-items:center;flex:1;cursor:pointer}
+.bar-stack{display:flex;flex-direction:column;justify-content:flex-end;width:100%;border-radius:3px 3px 0 0;overflow:hidden;transition:opacity .15s}
+.bar-stack:hover{opacity:.8}
 .bar-seg{width:100%}
-.bar-d{font-family:monospace;font-size:7px;color:#3a6080;margin-top:4px;transform:rotate(-45deg);transform-origin:top center;white-space:nowrap}
-
-/* ── LEGEND ── */
-.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
-.leg{display:flex;align-items:center;gap:4px;font-size:9px;color:#5080a0}
-.leg-sq{width:8px;height:8px;border-radius:2px}
+.bar-lbl{font-size:8px;color:var(--text3);margin-top:4px;transform:rotate(-35deg);transform-origin:top center;white-space:nowrap}
 
 /* ── DONUT ── */
-.donut-inner{display:flex;flex-direction:column;gap:10px;align-items:center}
-.d-legend{width:100%}
-.dl-row{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid #0e1e30}
-.dl-row:last-child{border-bottom:none}
-.dl-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
-.dl-name{flex:1;font-size:11px;color:#b0c8e0}
-.dl-pct{font-family:monospace;font-size:10px;color:#5080a0}
-.dl-n{font-family:monospace;font-size:10px;color:#8090a0;margin-left:6px}
+.donut-wrap{display:flex;align-items:center;gap:18px;padding:8px 0}
+.donut-legend{flex:1}
+.leg-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border2)}
+.leg-row:last-child{border-bottom:none}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.leg-name{flex:1;font-size:12px;color:var(--text)}
+.leg-pct{font-size:11px;color:var(--text2);font-weight:600}
+.leg-count{font-size:11px;color:var(--text3);margin-left:6px}
 
-/* ── TYPE BARS ── */
-.t-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-.t-name{font-family:monospace;font-size:9px;color:#5080a0;width:90px;text-align:right;flex-shrink:0}
-.t-bg{flex:1;height:7px;background:#0d1e30;border-radius:4px;overflow:hidden}
-.t-fill{height:100%;border-radius:4px}
-.t-cnt{font-family:monospace;font-size:9px;color:#7090a0;width:48px;text-align:right;flex-shrink:0}
+/* ── HBAR CHART ── */
+.hbar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.hbar-name{font-size:11px;color:var(--text);width:110px;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbar-bg{flex:1;height:8px;background:var(--gray-light);border-radius:4px;overflow:hidden}
+.hbar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.hbar-val{font-size:11px;color:var(--text2);width:48px;text-align:right;flex-shrink:0}
 
-/* ── TEAM TABLE ── */
-.tbl{width:100%;border-collapse:collapse}
-.tbl th{font-family:monospace;font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#3a6080;padding:5px 8px;border-bottom:1px solid #0e1e30;text-align:left}
-.tbl td{padding:8px 8px;font-size:11px;border-bottom:1px solid #0c1a28}
-.tbl tr:last-child td{border-bottom:none}
-.tbl tr:hover td{background:rgba(255,255,255,.015)}
-.t-nm{font-weight:700;font-size:12px;color:#c0d8f0}
-.mini-bg{height:4px;background:#0d1e30;border-radius:2px;overflow:hidden;margin-top:3px;width:80px}
-.mini-fill{height:100%;border-radius:2px}
-.chip{display:inline-block;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:10px;font-weight:700}
+/* ── TABLE ── */
+.tbl-scroll{overflow-x:auto;overflow-y:auto}
+.tbl-scroll::-webkit-scrollbar{height:4px;width:4px}
+.tbl-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+table.dtbl{width:100%;border-collapse:collapse;font-size:12px}
+table.dtbl th{background:var(--gray-light);color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:9px 12px;text-align:left;position:sticky;top:0;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+table.dtbl th:hover{background:#e8eaed}
+table.dtbl th.sort-asc::after{content:' ▲';font-size:9px}
+table.dtbl th.sort-desc::after{content:' ▼';font-size:9px}
+table.dtbl td{padding:8px 12px;border-bottom:1px solid var(--border2);vertical-align:middle;white-space:nowrap}
+table.dtbl tr:hover td{background:#f8f9fa}
+table.dtbl tr:last-child td{border-bottom:none}
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.pill-live{background:var(--green-light);color:var(--green)}
+.pill-cdl{background:var(--blue-light);color:var(--blue)}
+.pill-cul{background:var(--purple-light);color:var(--purple)}
+.pill-dms{background:var(--amber-light);color:var(--amber)}
+.pill-pend{background:var(--red-light);color:var(--red)}
+.pill-nodata{background:var(--gray-light);color:var(--gray)}
+.td-date{color:var(--blue);font-weight:600;font-size:11px}
+.td-num{font-size:12px;color:var(--text)}
+.td-muted{color:var(--text2)}
+.rank-badge{width:22px;height:22px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.bar-inline{height:5px;background:var(--blue-light);border-radius:3px;overflow:hidden;margin-top:3px}
+.bar-inline-fill{height:100%;background:var(--blue);border-radius:3px}
 
-/* ── DAILY TABLE ── */
-.dt-scroll{max-height:280px;overflow-y:auto}
-.dt-scroll::-webkit-scrollbar{width:3px}
-.dt-scroll::-webkit-scrollbar-thumb{background:#1a3050;border-radius:2px}
-.dt-tbl{width:100%;border-collapse:collapse}
-.dt-tbl th{position:sticky;top:0;background:#0a1628;font-family:monospace;font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#3a6080;padding:7px 9px;border-bottom:1px solid #0e1e30;text-align:left;z-index:5}
-.dt-tbl td{padding:7px 9px;font-family:monospace;font-size:10px;border-bottom:1px solid #0c1a28}
-.dt-tbl tr:last-child td{border-bottom:none}
-.dt-tbl tr:hover td{background:rgba(0,212,255,.02)}
-.pill{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700}
+/* ── PROGRESS RING ── */
+.team-card{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)}
+.team-card:last-child{border-bottom:none}
+.team-ring{flex-shrink:0}
+.team-info{flex:1}
+.team-name{font-size:12px;font-weight:600;color:var(--text)}
+.team-meta{font-size:10px;color:var(--text3)}
+.team-vals{text-align:right;flex-shrink:0}
+.team-vins{font-size:14px;font-weight:700;color:var(--blue)}
+.team-img{font-size:10px;color:var(--text3)}
+
+/* ── UPLOAD ZONE ── */
+.upload-zone{border:2px dashed var(--border);border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s;margin-bottom:16px;background:#fff}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-light)}
+.upload-icon-box{width:40px;height:40px;background:var(--blue-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.upload-text-title{font-size:13px;font-weight:600;color:var(--text)}
+.upload-text-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.upload-text-sub span{color:var(--blue);font-weight:600}
+.upload-status{margin-left:auto;font-size:11px;color:var(--green);font-weight:600;display:none;align-items:center;gap:5px}
+.upload-status.show{display:flex}
+#fileInput{display:none}
 
 /* ── TOOLTIP ── */
-#tip{position:fixed;background:#0a1628;border:1px solid #1a3050;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:10px;color:#c0d8f0;pointer-events:none;display:none;z-index:9999;line-height:1.8;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+#tip{position:fixed;background:rgba(32,33,36,.92);border-radius:6px;padding:8px 12px;font-size:11px;color:#fff;pointer-events:none;display:none;z-index:9999;line-height:1.6;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:220px}
+
+/* ── LEGEND PILLS ── */
+.chart-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.cl-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2)}
+.cl-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 
 /* ── FOOTER ── */
-footer{text-align:center;padding:14px;font-family:monospace;font-size:9px;color:#2a4060;border-top:1px solid #0e1e30;letter-spacing:.5px}
+.footer{text-align:center;padding:20px 24px;font-size:11px;color:var(--text3);border-top:1px solid var(--border2);margin-top:8px}
+
+/* ── RESPONSIVE TABLE HEIGHT ── */
+.tbl-h300{max-height:300px;overflow-y:auto}
+.tbl-h400{max-height:400px;overflow-y:auto}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="hdr">
-  <div class="hdr-left">
-    <h1>MASTER CATALOGUE <span>TRACKER</span></h1>
-    <p>VIN LEVEL-1 · DAILY REPORT DASHBOARD · AUG 2025 – MAY 2026</p>
-  </div>
-  <div class="hdr-right">
-    <div class="badge">Records: <b id="hdrRows">108,092</b></div>
-    <div class="badge">Days: <b id="hdrDays">234</b></div>
-    <div id="clock"></div>
-    <div class="live-pill"><div class="dot"></div>LIVE</div>
-  </div>
-</div>
-
-<!-- UPLOAD -->
-<div class="upload-wrap">
-  <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
-    <div class="u-icon">📂</div>
+<!-- TOP NAV -->
+<nav class="topnav">
+  <div class="nav-logo">
+    <div class="nav-logo-icon">MC</div>
     <div>
-      <div class="u-title">Daily Refresh — Drop Updated CSV Here</div>
-      <div class="u-sub">Export <b>Data VIN Level-1</b> tab · File → Download → CSV · Drop or click to upload</div>
+      <div class="nav-title">Master Catalogue Management</div>
+      <div class="nav-sub">VIN Level-1 · Daily Report Dashboard</div>
     </div>
-    <div id="uStatus" class="u-status"></div>
-    <button class="u-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">↑ Upload CSV</button>
   </div>
-  <input type="file" id="fileInput" accept=".csv"/>
+  <div class="nav-right">
+    <div class="nav-badge"><div class="nav-dot"></div>Live</div>
+    <div class="nav-time" id="navClock"></div>
+    <button class="upload-btn-nav" onclick="document.getElementById('fileInput').click()">↑ Upload CSV</button>
+    <input type="file" id="fileInput" accept=".csv"/>
+  </div>
+</nav>
+
+<!-- FILTER BAR -->
+<div class="filterbar">
+  <span class="filter-label">Filters:</span>
+  <select class="fsel" id="fPeriod" onchange="quickPeriod()">
+    <option value="all">All Time</option>
+    <option value="7">Last 7 Days</option>
+    <option value="30" selected>Last 30 Days</option>
+    <option value="60">Last 60 Days</option>
+    <option value="90">Last 90 Days</option>
+    <option value="custom">Custom Range</option>
+  </select>
+  <input type="date" class="date-input" id="fDateFrom" style="display:none"/>
+  <input type="date" class="date-input" id="fDateTo" style="display:none"/>
+  <div class="filter-sep"></div>
+  <select class="fsel" id="fPerson" onchange="applyFilters()">
+    <option value="">All Members</option>
+    <option value="Karmendra Singh">Karmendra Singh</option>
+    <option value="Vishal Singh">Vishal Singh</option>
+    <option value="Ankit Sharma">Ankit Sharma</option>
+    <option value="Gaurav Kumar">Gaurav Kumar</option>
+    <option value="Nishant">Nishant</option>
+    <option value="Sumit rana">Sumit rana</option>
+  </select>
+  <select class="fsel" id="fType" onchange="applyFilters()">
+    <option value="">All Types</option>
+    <option value="live">Live</option>
+    <option value="console_dl">Console Download</option>
+    <option value="console_ul">Console Upload</option>
+    <option value="dms_dl">DMS Download</option>
+    <option value="pending">Pending</option>
+    <option value="no_data">No Data</option>
+  </select>
+  <select class="fsel" id="fAccount" onchange="applyFilters()">
+    <option value="">All Account Types</option>
+    <option value="franchise">Franchise</option>
+    <option value="independent">Independent</option>
+    <option value="reseller">Reseller</option>
+  </select>
+  <select class="fsel" id="fDMS" onchange="applyFilters()">
+    <option value="">All DMS</option>
+    <option value="DS">DS</option>
+    <option value="DC">DC</option>
+    <option value="V-auto">V-auto</option>
+    <option value="Dealer On">Dealer On</option>
+    <option value="CFS">CFS</option>
+    <option value="IDMS">IDMS</option>
+    <option value="Dealer.com">Dealer.com</option>
+    <option value="DCS">DCS</option>
+  </select>
+  <div class="filter-sep"></div>
+  <button class="btn-apply" onclick="applyFilters()">Apply</button>
+  <button class="btn-reset" onclick="resetFilters()">Reset</button>
+  <div id="activeChips" class="active-filters"></div>
 </div>
 
-<!-- MAIN CONTENT -->
+<!-- MAIN -->
 <div class="main">
 
-  <div class="sec">▸ Overview KPIs</div>
-  <div class="kpi-grid">
-    <div class="kpi c0"><div class="kpi-lbl">Total VINs</div><div class="kpi-val" id="k0">—</div><div class="kpi-sub" id="k0s">—</div></div>
-    <div class="kpi c1"><div class="kpi-lbl">Live</div><div class="kpi-val" id="k1">—</div><div class="kpi-sub" id="k1s">—</div></div>
-    <div class="kpi c2"><div class="kpi-lbl">Console DL</div><div class="kpi-val" id="k2">—</div><div class="kpi-sub" id="k2s">—</div></div>
-    <div class="kpi c3"><div class="kpi-lbl">Console UL</div><div class="kpi-val" id="k3">—</div><div class="kpi-sub" id="k3s">—</div></div>
-    <div class="kpi c4"><div class="kpi-lbl">DMS Download</div><div class="kpi-val" id="k4">—</div><div class="kpi-sub" id="k4s">—</div></div>
-    <div class="kpi c5"><div class="kpi-lbl">Pending/Hold</div><div class="kpi-val" id="k5">—</div><div class="kpi-sub" id="k5s">needs attention</div></div>
-    <div class="kpi c6"><div class="kpi-lbl">Total Images</div><div class="kpi-val" id="k6">—</div><div class="kpi-sub" id="k6s">avg per VIN</div></div>
+  <!-- UPLOAD ZONE -->
+  <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-icon-box">📂</div>
+    <div>
+      <div class="upload-text-title">Daily Refresh — Drop Updated CSV Here</div>
+      <div class="upload-text-sub">Export <span>Data VIN Level-1</span> tab → File → Download → CSV · Drop or click</div>
+    </div>
+    <div class="upload-status" id="uploadStatus">✓ <span id="uploadMsg">Loaded</span></div>
   </div>
 
-  <div class="sec">▸ Daily Trend &amp; Account Split</div>
-  <div class="row2">
-    <div class="card">
-      <div class="card-hd"><div class="card-title">Daily VIN Volume</div><div class="card-tag" id="barBadge">LAST 30 DAYS</div></div>
-      <div class="bar-outer"><div class="bar-chart" id="barChart"></div></div>
-      <div class="legend">
-        <div class="leg"><div class="leg-sq" style="background:#00e676"></div>Live</div>
-        <div class="leg"><div class="leg-sq" style="background:#4488ff"></div>Console DL</div>
-        <div class="leg"><div class="leg-sq" style="background:#b06cff"></div>Console UL</div>
-        <div class="leg"><div class="leg-sq" style="background:#ffb224"></div>DMS DL</div>
-        <div class="leg"><div class="leg-sq" style="background:#607b99"></div>Other</div>
+  <!-- SCORECARDS -->
+  <div class="sec-hd"><span class="sec-hd-title">Key Metrics</span></div>
+  <div class="score-grid">
+    <div class="score"><div class="score-stripe" style="background:#4285f4"></div>
+      <div class="score-label"><div class="score-label-icon" style="background:#e8f0fe;color:#4285f4">◼</div>Total VINs</div>
+      <div class="score-val" id="s0" style="color:#4285f4">—</div><div class="score-meta" id="s0m">—</div></div>
+    <div class="score"><div class="score-stripe" style="background:#34a853"></div>
+      <div class="score-label"><div class="score-label-icon" style="background:#e6f4ea;color:#34a853">●</div>Live</div>
+      <div class="score-val" id="s1" style="color:#34a853">—</div><div class="score-meta" id="s1m">—</div></div>
+    <div class="score"><div class="score-stripe" style="background:#1a73e8"></div>
+      <div class="score-label"><div class="score-label-icon" style="background:#e8f0fe;color:#1a73e8">↓</div>Console DL</div>
+      <div class="score-val" id="s2" style="color:#1a73e8">—</div><div class="score-meta" id="s2m">—</div></div>
+    <div class="score"><div class="score-stripe" style="background:#9334e6"></div>
+      <div class="score-label"><div class="score-label-icon" style="background:#f3e8fd;color:#9334e6">↑</div>Console UL</div>
+      <div class="score-val" id="s3" style="color:#9334e6">—</div><div class="score-meta" id="s3m">—</div></div>
+    <div class="score"><div class="score-stripe" style="background:#f29900"></div>
+      <div class="score-label"><div class="score-label-icon" style="background:#fef7e0;color:#f29900">⇓</div>DMS Download</div>
+      <div class="score-val" id="s4" style="color:#f29900">—</div><div class="score-meta" id="s4m">—</div></div>
+    <div class="score"><div class="score-stripe" style="background:#d93025"></div>
+      <div class="score-label"><div class="score-label-icon" style="background:#fce8e6;color:#d93025">!</div>Pending/Hold</div>
+      <div class="score-val" id="s5" style="color:#d93025">—</div><div class="score-meta" id="s5m">—</div></div>
+    <div class="score"><div class="score-stripe" style="background:#129eaf"></div>
+      <div class="score-label"><div class="score-label-icon" style="background:#e4f7fb;color:#129eaf">🖼</div>Total Images</div>
+      <div class="score-val" id="s6" style="color:#129eaf">—</div><div class="score-meta" id="s6m">—</div></div>
+  </div>
+
+  <!-- TREND + ACCOUNT SPLIT -->
+  <div class="sec-hd"><span class="sec-hd-title">Trends & Distribution</span></div>
+  <div class="chart-row row-2">
+    <div class="panel">
+      <div class="panel-hd">
+        <div><div class="panel-title">Daily VIN Volume — Stacked by Type</div><div class="panel-sub" id="barSubtitle">Last 30 days</div></div>
+        <select class="fsel" id="barRange" onchange="renderBar()" style="font-size:11px;padding:3px 22px 3px 8px">
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+      <div class="panel-body">
+        <div class="barchart-wrap" id="barChart" style="height:190px"></div>
+        <div class="chart-legend">
+          <div class="cl-item"><div class="cl-dot" style="background:#34a853"></div>Live</div>
+          <div class="cl-item"><div class="cl-dot" style="background:#4285f4"></div>Console DL</div>
+          <div class="cl-item"><div class="cl-dot" style="background:#9334e6"></div>Console UL</div>
+          <div class="cl-item"><div class="cl-dot" style="background:#f29900"></div>DMS DL</div>
+          <div class="cl-item"><div class="cl-dot" style="background:#d93025"></div>Pending</div>
+          <div class="cl-item"><div class="cl-dot" style="background:#dadce0"></div>Other</div>
+        </div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-hd"><div class="card-title">Account Type Split</div><div class="card-tag">ALL TIME</div></div>
-      <div class="donut-inner">
-        <canvas id="donut" width="120" height="120"></canvas>
-        <div class="d-legend" id="dLeg"></div>
+    <div class="panel">
+      <div class="panel-hd"><div class="panel-title">Account Type Split</div><div class="panel-sub">All time</div></div>
+      <div class="panel-body">
+        <div class="donut-wrap">
+          <canvas id="donutCanvas" width="120" height="120"></canvas>
+          <div class="donut-legend" id="donutLeg"></div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="sec">▸ Breakdowns</div>
-  <div class="row3">
-    <div class="card">
-      <div class="card-hd"><div class="card-title">Processing Type Breakdown</div><div class="card-tag">ALL TIME</div></div>
-      <div id="typeBars"></div>
+  <!-- MONTHLY TREND LINE + TYPE BREAKDOWN -->
+  <div class="chart-row row-2-eq">
+    <div class="panel">
+      <div class="panel-hd"><div class="panel-title">Monthly VIN Trend</div><div class="panel-sub">Aug 2025 – May 2026</div></div>
+      <div class="panel-body">
+        <div class="linechart-wrap"><svg id="lineChart" class="linechart"></svg></div>
+        <div class="chart-legend" id="lineLegend"></div>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-hd"><div class="card-title">Team Performance</div><div class="card-tag">VINs PROCESSED</div></div>
-      <table class="tbl" id="teamTbl"></table>
-    </div>
-    <div class="card">
-      <div class="card-hd"><div class="card-title">Top Accounts</div><div class="card-tag">BY VIN COUNT</div></div>
-      <table class="tbl" id="accTbl"></table>
+    <div class="panel">
+      <div class="panel-hd"><div class="panel-title">Processing Type Breakdown</div><div class="panel-sub">Volume by type</div></div>
+      <div class="panel-body" id="typeBars"></div>
     </div>
   </div>
 
-  <div class="sec">▸ Daily Detail Report</div>
-  <div class="card">
-    <div class="card-hd"><div class="card-title">All Dates</div><div class="card-tag" id="dtBadge">— DAYS</div></div>
-    <div class="dt-scroll">
-      <table class="dt-tbl">
+  <!-- DMS + TEAM -->
+  <div class="chart-row row-2-eq">
+    <div class="panel">
+      <div class="panel-hd"><div class="panel-title">DMS Distribution</div><div class="panel-sub">VINs by DMS platform</div></div>
+      <div class="panel-body" id="dmsBars"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-hd"><div class="panel-title">Team Performance</div><div class="panel-sub">VINs & images per member</div></div>
+      <div class="panel-body" id="teamCards"></div>
+    </div>
+  </div>
+
+  <!-- TOP ACCOUNTS -->
+  <div class="sec-hd"><span class="sec-hd-title">Account Analytics</span></div>
+  <div class="chart-row row-full">
+    <div class="panel">
+      <div class="panel-hd"><div class="panel-title">Top Accounts by VIN Count</div><div class="panel-sub">Top 15 accounts</div></div>
+      <div class="panel-body" id="accBars"></div>
+    </div>
+  </div>
+
+  <!-- DAILY TABLE -->
+  <div class="sec-hd"><span class="sec-hd-title">Daily Detail Report</span></div>
+  <div class="panel">
+    <div class="panel-hd">
+      <div class="panel-title">All Daily Records</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="text" id="tableSearch" placeholder="Search date or value..." style="border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;outline:none;width:180px" oninput="renderTable()"/>
+        <div class="panel-sub" id="tableBadge">— rows</div>
+      </div>
+    </div>
+    <div class="tbl-h400 tbl-scroll">
+      <table class="dtbl" id="dailyTable">
         <thead><tr>
-          <th>Date</th><th>VINs</th><th>Images</th><th>Live</th><th>Cons DL</th><th>Cons UL</th><th>DMS DL</th><th>Pending</th><th>No Data</th><th>Franchise</th><th>Independent</th>
+          <th onclick="sortTable('date')">Date</th>
+          <th onclick="sortTable('vins')">Total VINs</th>
+          <th onclick="sortTable('images')">Images</th>
+          <th onclick="sortTable('live')">Live</th>
+          <th onclick="sortTable('console_dl')">Console DL</th>
+          <th onclick="sortTable('console_ul')">Console UL</th>
+          <th onclick="sortTable('dms_dl')">DMS DL</th>
+          <th onclick="sortTable('pending')">Pending</th>
+          <th onclick="sortTable('no_data')">No Data</th>
+          <th onclick="sortTable('franchise')">Franchise</th>
+          <th onclick="sortTable('independent')">Independent</th>
+          <th onclick="sortTable('reseller')">Reseller</th>
         </tr></thead>
         <tbody id="dtBody"></tbody>
       </table>
     </div>
   </div>
 
-</div>
+</div><!-- /main -->
 
-<footer>MASTER CATALOGUE TRACKER · VIN LEVEL-1 · UPLOAD FRESH CSV DAILY FOR AUTO REFRESH</footer>
+<div class="footer">Master Catalogue Management Tracker &nbsp;·&nbsp; VIN Level-1 &nbsp;·&nbsp; Upload daily CSV for live refresh &nbsp;·&nbsp; <span id="footerTime"></span></div>
 <div id="tip"></div>
 
 <script>
-// ═══════════════════════════════════════════════
-// SEED DATA — full 234-day history
-// ═══════════════════════════════════════════════
+// ══════════════ SEED DATA ══════════════
 var SEED=[{"date":"2025-08-12","vins":482,"images":15041,"live":164,"console_dl":0,"console_ul":318,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":159,"independent":314,"reseller":9},{"date":"2025-08-13","vins":406,"images":13592,"live":238,"console_dl":0,"console_ul":168,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":174,"independent":232,"reseller":0},{"date":"2025-08-14","vins":363,"images":9207,"live":246,"console_dl":0,"console_ul":117,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":245,"independent":118,"reseller":0},{"date":"2025-08-16","vins":111,"images":3043,"live":53,"console_dl":0,"console_ul":58,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":73,"independent":38,"reseller":0},{"date":"2025-08-18","vins":225,"images":6634,"live":107,"console_dl":0,"console_ul":118,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":86,"independent":128,"reseller":11},{"date":"2025-08-19","vins":260,"images":6836,"live":165,"console_dl":0,"console_ul":95,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":135,"independent":121,"reseller":4},{"date":"2025-08-20","vins":287,"images":6600,"live":125,"console_dl":0,"console_ul":162,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":186,"independent":101,"reseller":0},{"date":"2025-08-21","vins":508,"images":12100,"live":206,"console_dl":116,"console_ul":106,"dms_dl":80,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":277,"independent":231,"reseller":0},{"date":"2025-08-22","vins":592,"images":14512,"live":159,"console_dl":159,"console_ul":134,"dms_dl":134,"pending":0,"no_data":6,"not_found":0,"hold":0,"franchise":287,"independent":293,"reseller":12},{"date":"2025-08-23","vins":287,"images":7766,"live":86,"console_dl":86,"console_ul":46,"dms_dl":46,"pending":0,"no_data":23,"not_found":0,"hold":0,"franchise":134,"independent":147,"reseller":6},{"date":"2025-08-25","vins":212,"images":6590,"live":74,"console_dl":74,"console_ul":32,"dms_dl":32,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":68,"independent":144,"reseller":0},{"date":"2025-08-26","vins":442,"images":10854,"live":92,"console_dl":94,"console_ul":128,"dms_dl":128,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":208,"independent":226,"reseller":8},{"date":"2025-08-27","vins":574,"images":14616,"live":113,"console_dl":113,"console_ul":174,"dms_dl":174,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":348,"independent":226,"reseller":0},{"date":"2025-08-28","vins":304,"images":7508,"live":96,"console_dl":98,"console_ul":55,"dms_dl":55,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":130,"independent":170,"reseller":4},{"date":"2025-08-29","vins":254,"images":6656,"live":64,"console_dl":64,"console_ul":63,"dms_dl":63,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":108,"independent":146,"reseller":0},{"date":"2025-08-30","vins":260,"images":6480,"live":72,"console_dl":72,"console_ul":58,"dms_dl":58,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":154,"independent":104,"reseller":2},{"date":"2025-09-01","vins":526,"images":14032,"live":196,"console_dl":196,"console_ul":67,"dms_dl":67,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":370,"independent":156,"reseller":0},{"date":"2025-09-02","vins":362,"images":9882,"live":134,"console_dl":134,"console_ul":47,"dms_dl":47,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":252,"independent":110,"reseller":0},{"date":"2025-09-03","vins":306,"images":9552,"live":83,"console_dl":83,"console_ul":70,"dms_dl":70,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":116,"independent":182,"reseller":8},{"date":"2025-09-04","vins":262,"images":7586,"live":111,"console_dl":111,"console_ul":20,"dms_dl":20,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":88,"independent":174,"reseller":0},{"date":"2025-09-05","vins":288,"images":8022,"live":58,"console_dl":58,"console_ul":86,"dms_dl":86,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":194,"independent":94,"reseller":0},{"date":"2025-09-06","vins":206,"images":4698,"live":65,"console_dl":65,"console_ul":38,"dms_dl":38,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":154,"independent":52,"reseller":0},{"date":"2025-09-08","vins":138,"images":3936,"live":50,"console_dl":50,"console_ul":19,"dms_dl":19,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":44,"independent":84,"reseller":10},{"date":"2025-09-09","vins":358,"images":12856,"live":89,"console_dl":89,"console_ul":90,"dms_dl":90,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":156,"independent":102,"reseller":4},{"date":"2025-09-10","vins":274,"images":6982,"live":80,"console_dl":80,"console_ul":57,"dms_dl":57,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":178,"independent":96,"reseller":0},{"date":"2025-09-11","vins":580,"images":15650,"live":130,"console_dl":130,"console_ul":160,"dms_dl":160,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":320,"independent":256,"reseller":4},{"date":"2025-09-12","vins":334,"images":8240,"live":98,"console_dl":98,"console_ul":69,"dms_dl":69,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":212,"independent":120,"reseller":2},{"date":"2025-09-13","vins":458,"images":14268,"live":154,"console_dl":154,"console_ul":75,"dms_dl":75,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":286,"independent":162,"reseller":10},{"date":"2025-09-15","vins":483,"images":13854,"live":115,"console_dl":115,"console_ul":111,"dms_dl":111,"pending":0,"no_data":31,"not_found":0,"hold":0,"franchise":192,"independent":282,"reseller":8},{"date":"2025-09-16","vins":532,"images":15218,"live":153,"console_dl":153,"console_ul":94,"dms_dl":94,"pending":0,"no_data":38,"not_found":0,"hold":0,"franchise":213,"independent":318,"reseller":1},{"date":"2025-09-17","vins":860,"images":25882,"live":196,"console_dl":196,"console_ul":215,"dms_dl":215,"pending":0,"no_data":38,"not_found":0,"hold":0,"franchise":237,"independent":622,"reseller":1},{"date":"2025-09-18","vins":717,"images":17656,"live":209,"console_dl":209,"console_ul":125,"dms_dl":125,"pending":0,"no_data":49,"not_found":0,"hold":0,"franchise":191,"independent":525,"reseller":1},{"date":"2025-09-19","vins":395,"images":9462,"live":64,"console_dl":64,"console_ul":112,"dms_dl":112,"pending":0,"no_data":43,"not_found":0,"hold":0,"franchise":146,"independent":248,"reseller":1},{"date":"2025-09-22","vins":836,"images":24602,"live":178,"console_dl":177,"console_ul":229,"dms_dl":228,"pending":0,"no_data":24,"not_found":0,"hold":0,"franchise":329,"independent":506,"reseller":1},{"date":"2025-09-23","vins":1136,"images":28996,"live":191,"console_dl":193,"console_ul":362,"dms_dl":362,"pending":0,"no_data":28,"not_found":0,"hold":0,"franchise":333,"independent":802,"reseller":1},{"date":"2025-09-24","vins":865,"images":20294,"live":239,"console_dl":239,"console_ul":177,"dms_dl":177,"pending":0,"no_data":33,"not_found":0,"hold":0,"franchise":378,"independent":486,"reseller":1},{"date":"2025-09-25","vins":778,"images":18569,"live":227,"console_dl":193,"console_ul":165,"dms_dl":165,"pending":0,"no_data":28,"not_found":0,"hold":0,"franchise":310,"independent":467,"reseller":1},{"date":"2025-09-26","vins":792,"images":18034,"live":232,"console_dl":232,"console_ul":153,"dms_dl":153,"pending":0,"no_data":22,"not_found":0,"hold":0,"franchise":284,"independent":507,"reseller":1},{"date":"2025-09-27","vins":700,"images":16992,"live":257,"console_dl":257,"console_ul":74,"dms_dl":74,"pending":0,"no_data":38,"not_found":0,"hold":0,"franchise":238,"independent":461,"reseller":1},{"date":"2025-09-29","vins":907,"images":19618,"live":302,"console_dl":302,"console_ul":118,"dms_dl":118,"pending":0,"no_data":65,"not_found":0,"hold":2,"franchise":389,"independent":517,"reseller":1},{"date":"2025-09-30","vins":856,"images":19870,"live":302,"console_dl":302,"console_ul":77,"dms_dl":77,"pending":0,"no_data":34,"not_found":0,"hold":64,"franchise":69,"independent":758,"reseller":1},{"date":"2025-10-01","vins":912,"images":21158,"live":289,"console_dl":290,"console_ul":138,"dms_dl":138,"pending":1,"no_data":55,"not_found":1,"hold":0,"franchise":313,"independent":597,"reseller":1},{"date":"2025-10-03","vins":664,"images":20026,"live":152,"console_dl":152,"console_ul":158,"dms_dl":158,"pending":6,"no_data":34,"not_found":0,"hold":2,"franchise":266,"independent":397,"reseller":1},{"date":"2025-10-04","vins":1027,"images":30530,"live":311,"console_dl":413,"console_ul":165,"dms_dl":63,"pending":3,"no_data":28,"not_found":42,"hold":1,"franchise":312,"independent":714,"reseller":1},{"date":"2025-10-06","vins":426,"images":11194,"live":173,"console_dl":173,"console_ul":23,"dms_dl":23,"pending":0,"no_data":21,"not_found":13,"hold":0,"franchise":280,"independent":145,"reseller":1},{"date":"2025-10-07","vins":630,"images":13132,"live":140,"console_dl":140,"console_ul":130,"dms_dl":130,"pending":1,"no_data":31,"not_found":56,"hold":2,"franchise":459,"independent":170,"reseller":1},{"date":"2025-10-08","vins":884,"images":16101,"live":216,"console_dl":259,"console_ul":144,"dms_dl":144,"pending":44,"no_data":68,"not_found":5,"hold":3,"franchise":469,"independent":414,"reseller":1},{"date":"2025-10-09","vins":887,"images":20552,"live":310,"console_dl":310,"console_ul":98,"dms_dl":98,"pending":2,"no_data":44,"not_found":16,"hold":6,"franchise":517,"independent":369,"reseller":1},{"date":"2025-10-10","vins":774,"images":19045,"live":222,"console_dl":222,"console_ul":138,"dms_dl":138,"pending":1,"no_data":42,"not_found":4,"hold":5,"franchise":368,"independent":405,"reseller":1},{"date":"2025-10-11","vins":476,"images":10436,"live":148,"console_dl":148,"console_ul":72,"dms_dl":72,"pending":1,"no_data":30,"not_found":0,"hold":5,"franchise":251,"independent":224,"reseller":1},{"date":"2025-10-13","vins":835,"images":19034,"live":248,"console_dl":248,"console_ul":144,"dms_dl":145,"pending":0,"no_data":47,"not_found":1,"hold":0,"franchise":359,"independent":475,"reseller":1},{"date":"2025-10-14","vins":768,"images":17638,"live":225,"console_dl":216,"console_ul":139,"dms_dl":139,"pending":0,"no_data":47,"not_found":0,"hold":0,"franchise":245,"independent":521,"reseller":1},{"date":"2025-10-15","vins":782,"images":16926,"live":178,"console_dl":178,"console_ul":189,"dms_dl":189,"pending":0,"no_data":47,"not_found":1,"hold":0,"franchise":376,"independent":405,"reseller":1},{"date":"2025-10-16","vins":708,"images":16488,"live":198,"console_dl":191,"console_ul":136,"dms_dl":143,"pending":0,"no_data":40,"not_found":0,"hold":0,"franchise":389,"independent":318,"reseller":1},{"date":"2025-10-17","vins":391,"images":7582,"live":123,"console_dl":125,"console_ul":51,"dms_dl":51,"pending":0,"no_data":41,"not_found":0,"hold":0,"franchise":193,"independent":197,"reseller":1},{"date":"2025-10-18","vins":628,"images":14792,"live":89,"console_dl":89,"console_ul":201,"dms_dl":201,"pending":5,"no_data":43,"not_found":0,"hold":0,"franchise":290,"independent":337,"reseller":1},{"date":"2025-10-20","vins":500,"images":12626,"live":167,"console_dl":167,"console_ul":56,"dms_dl":56,"pending":0,"no_data":54,"not_found":0,"hold":0,"franchise":165,"independent":334,"reseller":1},{"date":"2025-10-22","vins":512,"images":12860,"live":155,"console_dl":155,"console_ul":86,"dms_dl":86,"pending":0,"no_data":27,"not_found":3,"hold":0,"franchise":248,"independent":263,"reseller":1},{"date":"2025-10-23","vins":383,"images":9384,"live":110,"console_dl":110,"console_ul":67,"dms_dl":67,"pending":0,"no_data":29,"not_found":0,"hold":0,"franchise":264,"independent":118,"reseller":1},{"date":"2025-10-24","vins":753,"images":18938,"live":241,"console_dl":250,"console_ul":107,"dms_dl":107,"pending":0,"no_data":39,"not_found":9,"hold":0,"franchise":425,"independent":327,"reseller":1},{"date":"2025-10-25","vins":471,"images":11809,"live":144,"console_dl":144,"console_ul":64,"dms_dl":64,"pending":0,"no_data":50,"not_found":5,"hold":0,"franchise":238,"independent":232,"reseller":1},{"date":"2025-10-27","vins":533,"images":13966,"live":120,"console_dl":120,"console_ul":125,"dms_dl":125,"pending":0,"no_data":43,"not_found":0,"hold":0,"franchise":311,"independent":195,"reseller":1},{"date":"2025-10-28","vins":660,"images":15852,"live":191,"console_dl":191,"console_ul":116,"dms_dl":116,"pending":0,"no_data":46,"not_found":0,"hold":0,"franchise":335,"independent":212,"reseller":1},{"date":"2025-10-29","vins":322,"images":6558,"live":112,"console_dl":112,"console_ul":33,"dms_dl":33,"pending":0,"no_data":32,"not_found":0,"hold":0,"franchise":205,"independent":116,"reseller":1},{"date":"2025-10-30","vins":451,"images":10884,"live":80,"console_dl":80,"console_ul":126,"dms_dl":126,"pending":6,"no_data":33,"not_found":0,"hold":0,"franchise":270,"independent":166,"reseller":1},{"date":"2025-10-31","vins":468,"images":11394,"live":160,"console_dl":160,"console_ul":54,"dms_dl":54,"pending":0,"no_data":40,"not_found":0,"hold":0,"franchise":280,"independent":183,"reseller":1},{"date":"2025-11-01","vins":349,"images":8992,"live":61,"console_dl":72,"console_ul":91,"dms_dl":91,"pending":0,"no_data":23,"not_found":11,"hold":0,"franchise":148,"independent":200,"reseller":1},{"date":"2025-11-03","vins":322,"images":7754,"live":72,"console_dl":72,"console_ul":79,"dms_dl":79,"pending":0,"no_data":20,"not_found":0,"hold":0,"franchise":178,"independent":143,"reseller":1},{"date":"2025-11-04","vins":429,"images":9968,"live":85,"console_dl":85,"console_ul":118,"dms_dl":118,"pending":0,"no_data":23,"not_found":0,"hold":0,"franchise":253,"independent":175,"reseller":1},{"date":"2025-11-05","vins":741,"images":16692,"live":194,"console_dl":194,"console_ul":160,"dms_dl":160,"pending":0,"no_data":32,"not_found":0,"hold":0,"franchise":481,"independent":241,"reseller":1},{"date":"2025-11-06","vins":732,"images":23442,"live":240,"console_dl":240,"console_ul":105,"dms_dl":105,"pending":0,"no_data":42,"not_found":0,"hold":0,"franchise":359,"independent":371,"reseller":1},{"date":"2025-11-07","vins":633,"images":15810,"live":137,"console_dl":137,"console_ul":161,"dms_dl":161,"pending":1,"no_data":36,"not_found":0,"hold":0,"franchise":324,"independent":308,"reseller":1},{"date":"2025-11-08","vins":379,"images":9172,"live":70,"console_dl":70,"console_ul":104,"dms_dl":104,"pending":0,"no_data":31,"not_found":0,"hold":0,"franchise":168,"independent":210,"reseller":1},{"date":"2025-11-10","vins":563,"images":13184,"live":204,"console_dl":204,"console_ul":56,"dms_dl":56,"pending":0,"no_data":43,"not_found":0,"hold":0,"franchise":295,"independent":267,"reseller":1},{"date":"2025-11-11","vins":329,"images":10772,"live":40,"console_dl":40,"console_ul":113,"dms_dl":113,"pending":0,"no_data":23,"not_found":0,"hold":0,"franchise":91,"independent":237,"reseller":1},{"date":"2025-11-12","vins":550,"images":12902,"live":132,"console_dl":132,"console_ul":126,"dms_dl":126,"pending":0,"no_data":34,"not_found":0,"hold":0,"franchise":306,"independent":243,"reseller":1},{"date":"2025-11-13","vins":609,"images":14254,"live":216,"console_dl":216,"console_ul":71,"dms_dl":71,"pending":0,"no_data":35,"not_found":0,"hold":0,"franchise":269,"independent":339,"reseller":1},{"date":"2025-11-14","vins":549,"images":16040,"live":128,"console_dl":128,"console_ul":127,"dms_dl":127,"pending":0,"no_data":39,"not_found":0,"hold":0,"franchise":206,"independent":286,"reseller":1},{"date":"2025-11-15","vins":236,"images":5512,"live":60,"console_dl":60,"console_ul":44,"dms_dl":44,"pending":0,"no_data":28,"not_found":0,"hold":0,"franchise":149,"independent":86,"reseller":1},{"date":"2025-11-17","vins":471,"images":14396,"live":103,"console_dl":103,"console_ul":118,"dms_dl":118,"pending":0,"no_data":28,"not_found":0,"hold":1,"franchise":222,"independent":249,"reseller":0},{"date":"2025-11-18","vins":717,"images":24070,"live":146,"console_dl":146,"console_ul":196,"dms_dl":196,"pending":0,"no_data":33,"not_found":0,"hold":0,"franchise":284,"independent":432,"reseller":1},{"date":"2025-11-19","vins":652,"images":23100,"live":193,"console_dl":208,"console_ul":97,"dms_dl":97,"pending":0,"no_data":41,"not_found":15,"hold":1,"franchise":289,"independent":362,"reseller":1},{"date":"2025-11-20","vins":656,"images":16810,"live":135,"console_dl":135,"console_ul":172,"dms_dl":172,"pending":0,"no_data":42,"not_found":0,"hold":0,"franchise":312,"independent":343,"reseller":1},{"date":"2025-11-21","vins":734,"images":17158,"live":233,"console_dl":233,"console_ul":116,"dms_dl":116,"pending":0,"no_data":36,"not_found":0,"hold":0,"franchise":372,"independent":361,"reseller":1},{"date":"2025-11-22","vins":597,"images":16730,"live":151,"console_dl":151,"console_ul":132,"dms_dl":132,"pending":0,"no_data":30,"not_found":0,"hold":1,"franchise":206,"independent":390,"reseller":1},{"date":"2025-11-24","vins":522,"images":14630,"live":187,"console_dl":187,"console_ul":61,"dms_dl":61,"pending":0,"no_data":26,"not_found":0,"hold":0,"franchise":190,"independent":331,"reseller":1},{"date":"2025-11-25","vins":492,"images":11392,"live":93,"console_dl":93,"console_ul":136,"dms_dl":136,"pending":0,"no_data":34,"not_found":0,"hold":0,"franchise":278,"independent":211,"reseller":1},{"date":"2025-11-26","vins":523,"images":12300,"live":175,"console_dl":175,"console_ul":66,"dms_dl":66,"pending":0,"no_data":41,"not_found":0,"hold":0,"franchise":272,"independent":236,"reseller":1},{"date":"2025-11-27","vins":422,"images":9670,"live":93,"console_dl":93,"console_ul":99,"dms_dl":99,"pending":0,"no_data":38,"not_found":0,"hold":0,"franchise":220,"independent":201,"reseller":1},{"date":"2025-11-28","vins":409,"images":8882,"live":85,"console_dl":85,"console_ul":103,"dms_dl":103,"pending":0,"no_data":32,"not_found":0,"hold":1,"franchise":227,"independent":181,"reseller":1},{"date":"2025-11-29","vins":344,"images":8988,"live":123,"console_dl":123,"console_ul":34,"dms_dl":34,"pending":0,"no_data":30,"not_found":0,"hold":0,"franchise":148,"independent":195,"reseller":1},{"date":"2025-12-01","vins":429,"images":9936,"live":51,"console_dl":51,"console_ul":149,"dms_dl":149,"pending":0,"no_data":29,"not_found":0,"hold":0,"franchise":295,"independent":134,"reseller":0},{"date":"2025-12-02","vins":490,"images":12188,"live":159,"console_dl":159,"console_ul":62,"dms_dl":62,"pending":0,"no_data":47,"not_found":0,"hold":1,"franchise":295,"independent":151,"reseller":44},{"date":"2025-12-03","vins":608,"images":13806,"live":51,"console_dl":51,"console_ul":231,"dms_dl":231,"pending":0,"no_data":44,"not_found":0,"hold":0,"franchise":396,"independent":102,"reseller":110},{"date":"2025-12-04","vins":413,"images":9284,"live":87,"console_dl":87,"console_ul":105,"dms_dl":105,"pending":0,"no_data":28,"not_found":0,"hold":0,"franchise":175,"independent":194,"reseller":44},{"date":"2025-12-05","vins":550,"images":13546,"live":141,"console_dl":141,"console_ul":110,"dms_dl":110,"pending":0,"no_data":48,"not_found":0,"hold":0,"franchise":290,"independent":224,"reseller":36},{"date":"2025-12-06","vins":562,"images":14854,"live":195,"console_dl":195,"console_ul":68,"dms_dl":68,"pending":0,"no_data":36,"not_found":0,"hold":0,"franchise":229,"independent":225,"reseller":64},{"date":"2025-12-08","vins":583,"images":14500,"live":110,"console_dl":110,"console_ul":160,"dms_dl":160,"pending":0,"no_data":43,"not_found":0,"hold":0,"franchise":250,"independent":261,"reseller":72},{"date":"2025-12-09","vins":287,"images":7098,"live":66,"console_dl":66,"console_ul":64,"dms_dl":64,"pending":0,"no_data":27,"not_found":0,"hold":0,"franchise":124,"independent":162,"reseller":1},{"date":"2025-12-10","vins":633,"images":14554,"live":233,"console_dl":233,"console_ul":69,"dms_dl":69,"pending":0,"no_data":29,"not_found":0,"hold":0,"franchise":336,"independent":255,"reseller":42},{"date":"2025-12-11","vins":552,"images":14032,"live":87,"console_dl":86,"console_ul":171,"dms_dl":171,"pending":0,"no_data":36,"not_found":0,"hold":1,"franchise":307,"independent":231,"reseller":14},{"date":"2025-12-12","vins":588,"images":14718,"live":217,"console_dl":217,"console_ul":61,"dms_dl":61,"pending":0,"no_data":32,"not_found":0,"hold":0,"franchise":351,"independent":221,"reseller":16},{"date":"2025-12-13","vins":386,"images":8882,"live":78,"console_dl":78,"console_ul":92,"dms_dl":92,"pending":0,"no_data":46,"not_found":0,"hold":0,"franchise":236,"independent":134,"reseller":16},{"date":"2025-12-15","vins":515,"images":11940,"live":153,"console_dl":153,"console_ul":86,"dms_dl":86,"pending":0,"no_data":37,"not_found":0,"hold":0,"franchise":310,"independent":193,"reseller":12},{"date":"2025-12-16","vins":493,"images":11232,"live":96,"console_dl":74,"console_ul":128,"dms_dl":150,"pending":0,"no_data":45,"not_found":0,"hold":0,"franchise":341,"independent":151,"reseller":1},{"date":"2025-12-17","vins":477,"images":10560,"live":139,"console_dl":139,"console_ul":80,"dms_dl":80,"pending":0,"no_data":39,"not_found":0,"hold":0,"franchise":344,"independent":127,"reseller":6},{"date":"2025-12-18","vins":533,"images":13820,"live":182,"console_dl":182,"console_ul":69,"dms_dl":69,"pending":0,"no_data":31,"not_found":0,"hold":0,"franchise":242,"independent":285,"reseller":6},{"date":"2025-12-19","vins":392,"images":9041,"live":93,"console_dl":93,"console_ul":39,"dms_dl":124,"pending":0,"no_data":43,"not_found":0,"hold":0,"franchise":212,"independent":170,"reseller":10},{"date":"2025-12-20","vins":193,"images":5526,"live":70,"console_dl":70,"console_ul":16,"dms_dl":16,"pending":0,"no_data":21,"not_found":0,"hold":0,"franchise":71,"independent":122,"reseller":0},{"date":"2025-12-22","vins":300,"images":7539,"live":78,"console_dl":79,"console_ul":31,"dms_dl":73,"pending":0,"no_data":38,"not_found":1,"hold":0,"franchise":158,"independent":134,"reseller":8},{"date":"2025-12-23","vins":369,"images":9462,"live":76,"console_dl":76,"console_ul":89,"dms_dl":89,"pending":0,"no_data":39,"not_found":0,"hold":0,"franchise":173,"independent":188,"reseller":8},{"date":"2025-12-24","vins":369,"images":7820,"live":93,"console_dl":93,"console_ul":83,"dms_dl":83,"pending":0,"no_data":17,"not_found":0,"hold":0,"franchise":225,"independent":136,"reseller":8},{"date":"2025-12-26","vins":402,"images":10634,"live":103,"console_dl":103,"console_ul":77,"dms_dl":77,"pending":0,"no_data":42,"not_found":0,"hold":0,"franchise":233,"independent":167,"reseller":2},{"date":"2025-12-27","vins":306,"images":8098,"live":101,"console_dl":101,"console_ul":27,"dms_dl":27,"pending":0,"no_data":50,"not_found":0,"hold":0,"franchise":131,"independent":173,"reseller":2},{"date":"2025-12-29","vins":171,"images":4280,"live":26,"console_dl":28,"console_ul":16,"dms_dl":76,"pending":0,"no_data":23,"not_found":2,"hold":0,"franchise":28,"independent":143,"reseller":0},{"date":"2025-12-30","vins":385,"images":9178,"live":37,"console_dl":37,"console_ul":133,"dms_dl":133,"pending":0,"no_data":45,"not_found":0,"hold":0,"franchise":217,"independent":167,"reseller":1},{"date":"2025-12-31","vins":325,"images":6838,"live":114,"console_dl":114,"console_ul":24,"dms_dl":24,"pending":0,"no_data":49,"not_found":0,"hold":0,"franchise":194,"independent":130,"reseller":1},{"date":"2026-01-02","vins":447,"images":11228,"live":75,"console_dl":82,"console_ul":122,"dms_dl":122,"pending":0,"no_data":39,"not_found":7,"hold":0,"franchise":219,"independent":227,"reseller":1},{"date":"2026-01-03","vins":397,"images":8971,"live":139,"console_dl":140,"console_ul":45,"dms_dl":27,"pending":0,"no_data":45,"not_found":1,"hold":0,"franchise":213,"independent":183,"reseller":1},{"date":"2026-01-05","vins":355,"images":8900,"live":62,"console_dl":62,"console_ul":93,"dms_dl":93,"pending":0,"no_data":45,"not_found":0,"hold":0,"franchise":133,"independent":221,"reseller":1},{"date":"2026-01-06","vins":364,"images":9317,"live":92,"console_dl":92,"console_ul":82,"dms_dl":62,"pending":0,"no_data":36,"not_found":0,"hold":0,"franchise":177,"independent":186,"reseller":1},{"date":"2026-01-07","vins":432,"images":8248,"live":71,"console_dl":71,"console_ul":131,"dms_dl":111,"pending":0,"no_data":48,"not_found":0,"hold":0,"franchise":256,"independent":175,"reseller":1},{"date":"2026-01-08","vins":471,"images":10734,"live":172,"console_dl":172,"console_ul":46,"dms_dl":46,"pending":0,"no_data":35,"not_found":0,"hold":0,"franchise":218,"independent":249,"reseller":4},{"date":"2026-01-09","vins":461,"images":10502,"live":95,"console_dl":95,"console_ul":113,"dms_dl":113,"pending":0,"no_data":45,"not_found":0,"hold":0,"franchise":240,"independent":217,"reseller":4},{"date":"2026-01-10","vins":494,"images":11406,"live":176,"console_dl":176,"console_ul":47,"dms_dl":47,"pending":0,"no_data":48,"not_found":0,"hold":0,"franchise":289,"independent":204,"reseller":1},{"date":"2026-01-12","vins":452,"images":10750,"live":108,"console_dl":108,"console_ul":96,"dms_dl":96,"pending":0,"no_data":44,"not_found":0,"hold":0,"franchise":256,"independent":195,"reseller":1},{"date":"2026-01-13","vins":400,"images":9540,"live":135,"console_dl":135,"console_ul":42,"dms_dl":42,"pending":0,"no_data":46,"not_found":0,"hold":0,"franchise":168,"independent":231,"reseller":1},{"date":"2026-01-15","vins":287,"images":6656,"live":41,"console_dl":41,"console_ul":93,"dms_dl":93,"pending":0,"no_data":19,"not_found":0,"hold":0,"franchise":173,"independent":112,"reseller":2},{"date":"2026-01-16","vins":595,"images":13684,"live":145,"console_dl":145,"console_ul":133,"dms_dl":133,"pending":0,"no_data":39,"not_found":0,"hold":0,"franchise":310,"independent":253,"reseller":2},{"date":"2026-01-17","vins":456,"images":12712,"live":165,"console_dl":165,"console_ul":40,"dms_dl":40,"pending":0,"no_data":46,"not_found":0,"hold":0,"franchise":215,"independent":239,"reseller":2},{"date":"2026-01-19","vins":367,"images":11098,"live":95,"console_dl":95,"console_ul":67,"dms_dl":67,"pending":0,"no_data":43,"not_found":0,"hold":0,"franchise":128,"independent":238,"reseller":1},{"date":"2026-01-20","vins":356,"images":8706,"live":72,"console_dl":72,"console_ul":81,"dms_dl":81,"pending":0,"no_data":50,"not_found":0,"hold":0,"franchise":140,"independent":215,"reseller":1},{"date":"2026-01-21","vins":409,"images":9686,"live":129,"console_dl":129,"console_ul":53,"dms_dl":53,"pending":0,"no_data":45,"not_found":0,"hold":0,"franchise":199,"independent":197,"reseller":1},{"date":"2026-01-22","vins":347,"images":8522,"live":67,"console_dl":67,"console_ul":85,"dms_dl":85,"pending":0,"no_data":43,"not_found":0,"hold":0,"franchise":171,"independent":175,"reseller":1},{"date":"2026-01-23","vins":440,"images":10132,"live":123,"console_dl":123,"console_ul":78,"dms_dl":78,"pending":0,"no_data":38,"not_found":0,"hold":0,"franchise":265,"independent":174,"reseller":1},{"date":"2026-01-24","vins":371,"images":9678,"live":116,"console_dl":116,"console_ul":47,"dms_dl":47,"pending":0,"no_data":45,"not_found":0,"hold":0,"franchise":197,"independent":173,"reseller":1},{"date":"2026-01-27","vins":529,"images":10078,"live":78,"console_dl":78,"console_ul":167,"dms_dl":167,"pending":0,"no_data":39,"not_found":0,"hold":0,"franchise":193,"independent":197,"reseller":1},{"date":"2026-01-28","vins":464,"images":10554,"live":139,"console_dl":139,"console_ul":76,"dms_dl":76,"pending":0,"no_data":34,"not_found":0,"hold":0,"franchise":271,"independent":193,"reseller":0},{"date":"2026-01-29","vins":295,"images":6958,"live":58,"console_dl":58,"console_ul":70,"dms_dl":70,"pending":0,"no_data":39,"not_found":0,"hold":0,"franchise":83,"independent":211,"reseller":1},{"date":"2026-01-30","vins":304,"images":6516,"live":84,"console_dl":84,"console_ul":44,"dms_dl":44,"pending":3,"no_data":45,"not_found":0,"hold":0,"franchise":182,"independent":121,"reseller":1},{"date":"2026-01-31","vins":173,"images":3860,"live":52,"console_dl":52,"console_ul":27,"dms_dl":27,"pending":0,"no_data":15,"not_found":0,"hold":0,"franchise":80,"independent":93,"reseller":0},{"date":"2026-02-02","vins":381,"images":9324,"live":54,"console_dl":54,"console_ul":120,"dms_dl":120,"pending":2,"no_data":31,"not_found":0,"hold":0,"franchise":182,"independent":198,"reseller":1},{"date":"2026-02-03","vins":402,"images":11378,"live":145,"console_dl":145,"console_ul":39,"dms_dl":39,"pending":0,"no_data":34,"not_found":0,"hold":0,"franchise":202,"independent":199,"reseller":1},{"date":"2026-02-04","vins":331,"images":8384,"live":65,"console_dl":65,"console_ul":84,"dms_dl":84,"pending":0,"no_data":33,"not_found":0,"hold":0,"franchise":174,"independent":156,"reseller":1},{"date":"2026-02-05","vins":375,"images":8514,"live":118,"console_dl":118,"console_ul":54,"dms_dl":54,"pending":0,"no_data":31,"not_found":0,"hold":0,"franchise":172,"independent":202,"reseller":1},{"date":"2026-02-06","vins":219,"images":5196,"live":65,"console_dl":65,"console_ul":39,"dms_dl":39,"pending":0,"no_data":11,"not_found":0,"hold":0,"franchise":94,"independent":125,"reseller":0},{"date":"2026-02-07","vins":330,"images":7852,"live":81,"console_dl":81,"console_ul":68,"dms_dl":68,"pending":0,"no_data":32,"not_found":0,"hold":0,"franchise":164,"independent":165,"reseller":1},{"date":"2026-02-09","vins":407,"images":10362,"live":152,"console_dl":152,"console_ul":35,"dms_dl":35,"pending":2,"no_data":31,"not_found":0,"hold":0,"franchise":233,"independent":173,"reseller":1},{"date":"2026-02-10","vins":424,"images":10994,"live":94,"console_dl":94,"console_ul":101,"dms_dl":101,"pending":2,"no_data":32,"not_found":0,"hold":0,"franchise":252,"independent":171,"reseller":1},{"date":"2026-02-11","vins":558,"images":12558,"live":195,"console_dl":195,"console_ul":68,"dms_dl":68,"pending":2,"no_data":30,"not_found":0,"hold":0,"franchise":363,"independent":194,"reseller":1},{"date":"2026-02-12","vins":446,"images":10198,"live":121,"console_dl":121,"console_ul":87,"dms_dl":87,"pending":2,"no_data":28,"not_found":0,"hold":0,"franchise":279,"independent":166,"reseller":1},{"date":"2026-02-13","vins":545,"images":14080,"live":178,"console_dl":178,"console_ul":78,"dms_dl":78,"pending":2,"no_data":31,"not_found":0,"hold":0,"franchise":314,"independent":230,"reseller":1},{"date":"2026-02-14","vins":578,"images":12824,"live":182,"console_dl":182,"console_ul":89,"dms_dl":89,"pending":2,"no_data":34,"not_found":0,"hold":0,"franchise":434,"independent":143,"reseller":1},{"date":"2026-02-16","vins":212,"images":5850,"live":63,"console_dl":63,"console_ul":33,"dms_dl":33,"pending":1,"no_data":19,"not_found":0,"hold":0,"franchise":107,"independent":104,"reseller":1},{"date":"2026-02-17","vins":593,"images":14316,"live":197,"console_dl":197,"console_ul":83,"dms_dl":83,"pending":1,"no_data":32,"not_found":0,"hold":0,"franchise":367,"independent":225,"reseller":1},{"date":"2026-02-18","vins":590,"images":15986,"live":190,"console_dl":190,"console_ul":88,"dms_dl":88,"pending":1,"no_data":33,"not_found":0,"hold":0,"franchise":351,"independent":238,"reseller":1},{"date":"2026-02-19","vins":249,"images":6272,"live":49,"console_dl":49,"console_ul":69,"dms_dl":69,"pending":0,"no_data":13,"not_found":0,"hold":0,"franchise":152,"independent":97,"reseller":0},{"date":"2026-02-20","vins":914,"images":17279,"live":336,"console_dl":336,"console_ul":80,"dms_dl":130,"pending":2,"no_data":30,"not_found":0,"hold":0,"franchise":623,"independent":290,"reseller":1},{"date":"2026-02-21","vins":618,"images":13864,"live":189,"console_dl":189,"console_ul":104,"dms_dl":104,"pending":2,"no_data":30,"not_found":0,"hold":0,"franchise":338,"independent":279,"reseller":1},{"date":"2026-02-23","vins":834,"images":18878,"live":253,"console_dl":253,"console_ul":146,"dms_dl":146,"pending":1,"no_data":35,"not_found":0,"hold":0,"franchise":349,"independent":484,"reseller":1},{"date":"2026-02-24","vins":471,"images":9636,"live":163,"console_dl":163,"console_ul":54,"dms_dl":54,"pending":1,"no_data":36,"not_found":0,"hold":0,"franchise":364,"independent":106,"reseller":1},{"date":"2026-02-25","vins":360,"images":8442,"live":68,"console_dl":68,"console_ul":97,"dms_dl":97,"pending":1,"no_data":29,"not_found":0,"hold":0,"franchise":182,"independent":177,"reseller":1},{"date":"2026-02-26","vins":1041,"images":20140,"live":226,"console_dl":226,"console_ul":276,"dms_dl":276,"pending":1,"no_data":36,"not_found":0,"hold":0,"franchise":848,"independent":192,"reseller":1},{"date":"2026-02-27","vins":1126,"images":21682,"live":180,"console_dl":180,"console_ul":363,"dms_dl":363,"pending":1,"no_data":39,"not_found":0,"hold":0,"franchise":989,"independent":136,"reseller":1},{"date":"2026-02-28","vins":364,"images":7796,"live":135,"console_dl":135,"console_ul":27,"dms_dl":27,"pending":1,"no_data":39,"not_found":0,"hold":0,"franchise":258,"independent":105,"reseller":1},{"date":"2026-03-02","vins":391,"images":7148,"live":162,"console_dl":100,"console_ul":55,"dms_dl":55,"pending":2,"no_data":17,"not_found":0,"hold":0,"franchise":368,"independent":22,"reseller":1},{"date":"2026-03-03","vins":334,"images":6509,"live":199,"console_dl":111,"console_ul":3,"dms_dl":3,"pending":2,"no_data":16,"not_found":0,"hold":0,"franchise":319,"independent":14,"reseller":1},{"date":"2026-03-04","vins":51,"images":897,"live":51,"console_dl":0,"console_ul":0,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":51,"independent":0,"reseller":0},{"date":"2026-03-05","vins":113,"images":1777,"live":113,"console_dl":0,"console_ul":0,"dms_dl":0,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":113,"independent":0,"reseller":0},{"date":"2026-03-06","vins":376,"images":7892,"live":150,"console_dl":33,"console_ul":90,"dms_dl":90,"pending":2,"no_data":11,"not_found":0,"hold":0,"franchise":313,"independent":62,"reseller":1},{"date":"2026-03-07","vins":357,"images":6839,"live":193,"console_dl":95,"console_ul":28,"dms_dl":28,"pending":0,"no_data":13,"not_found":0,"hold":0,"franchise":306,"independent":50,"reseller":1},{"date":"2026-03-09","vins":631,"images":14594,"live":117,"console_dl":117,"console_ul":187,"dms_dl":187,"pending":2,"no_data":21,"not_found":0,"hold":0,"franchise":432,"independent":198,"reseller":1},{"date":"2026-03-10","vins":1092,"images":23858,"live":344,"console_dl":344,"console_ul":191,"dms_dl":191,"pending":2,"no_data":20,"not_found":0,"hold":0,"franchise":900,"independent":191,"reseller":1},{"date":"2026-03-11","vins":647,"images":14200,"live":174,"console_dl":174,"console_ul":138,"dms_dl":138,"pending":0,"no_data":23,"not_found":0,"hold":0,"franchise":305,"independent":303,"reseller":1},{"date":"2026-03-12","vins":281,"images":8926,"live":109,"console_dl":109,"console_ul":29,"dms_dl":29,"pending":0,"no_data":5,"not_found":0,"hold":0,"franchise":104,"independent":177,"reseller":0},{"date":"2026-03-13","vins":307,"images":5186,"live":79,"console_dl":5,"console_ul":101,"dms_dl":101,"pending":9,"no_data":12,"not_found":0,"hold":0,"franchise":275,"independent":31,"reseller":1},{"date":"2026-03-14","vins":693,"images":14817,"live":337,"console_dl":236,"console_ul":50,"dms_dl":50,"pending":0,"no_data":20,"not_found":0,"hold":0,"franchise":439,"independent":253,"reseller":1},{"date":"2026-03-16","vins":473,"images":10246,"live":214,"console_dl":214,"console_ul":16,"dms_dl":16,"pending":0,"no_data":13,"not_found":0,"hold":0,"franchise":375,"independent":98,"reseller":0},{"date":"2026-03-17","vins":501,"images":10792,"live":190,"console_dl":125,"console_ul":87,"dms_dl":87,"pending":0,"no_data":12,"not_found":0,"hold":0,"franchise":384,"independent":117,"reseller":0},{"date":"2026-03-18","vins":367,"images":8122,"live":173,"console_dl":111,"console_ul":36,"dms_dl":36,"pending":0,"no_data":11,"not_found":0,"hold":0,"franchise":238,"independent":129,"reseller":0},{"date":"2026-03-19","vins":166,"images":4914,"live":60,"console_dl":31,"console_ul":32,"dms_dl":32,"pending":0,"no_data":11,"not_found":0,"hold":0,"franchise":64,"independent":102,"reseller":0},{"date":"2026-03-20","vins":529,"images":12055,"live":109,"console_dl":88,"console_ul":154,"dms_dl":154,"pending":2,"no_data":22,"not_found":0,"hold":0,"franchise":322,"independent":206,"reseller":1},{"date":"2026-03-21","vins":612,"images":13203,"live":249,"console_dl":235,"console_ul":54,"dms_dl":54,"pending":2,"no_data":18,"not_found":0,"hold":0,"franchise":467,"independent":144,"reseller":1},{"date":"2026-03-23","vins":380,"images":9024,"live":73,"console_dl":73,"console_ul":105,"dms_dl":105,"pending":2,"no_data":22,"not_found":0,"hold":0,"franchise":228,"independent":151,"reseller":1},{"date":"2026-03-24","vins":523,"images":11270,"live":198,"console_dl":198,"console_ul":51,"dms_dl":51,"pending":2,"no_data":23,"not_found":0,"hold":0,"franchise":328,"independent":194,"reseller":1},{"date":"2026-03-25","vins":520,"images":11710,"live":128,"console_dl":128,"console_ul":120,"dms_dl":120,"pending":2,"no_data":22,"not_found":0,"hold":0,"franchise":346,"independent":173,"reseller":1},{"date":"2026-03-26","vins":536,"images":12320,"live":174,"console_dl":174,"console_ul":81,"dms_dl":81,"pending":2,"no_data":24,"not_found":0,"hold":0,"franchise":337,"independent":198,"reseller":1},{"date":"2026-03-27","vins":519,"images":10796,"live":158,"console_dl":158,"console_ul":90,"dms_dl":90,"pending":2,"no_data":21,"not_found":0,"hold":0,"franchise":330,"independent":188,"reseller":1},{"date":"2026-03-28","vins":231,"images":5624,"live":55,"console_dl":55,"console_ul":53,"dms_dl":53,"pending":0,"no_data":15,"not_found":0,"hold":0,"franchise":153,"independent":78,"reseller":0},{"date":"2026-03-30","vins":485,"images":10300,"live":181,"console_dl":181,"console_ul":49,"dms_dl":49,"pending":2,"no_data":23,"not_found":0,"hold":0,"franchise":316,"independent":168,"reseller":1},{"date":"2026-03-31","vins":422,"images":9356,"live":109,"console_dl":109,"console_ul":90,"dms_dl":90,"pending":2,"no_data":22,"not_found":0,"hold":0,"franchise":270,"independent":151,"reseller":1},{"date":"2026-04-01","vins":461,"images":9498,"live":144,"console_dl":144,"console_ul":74,"dms_dl":74,"pending":2,"no_data":23,"not_found":0,"hold":0,"franchise":353,"independent":107,"reseller":1},{"date":"2026-04-02","vins":440,"images":9944,"live":140,"console_dl":140,"console_ul":68,"dms_dl":68,"pending":2,"no_data":22,"not_found":0,"hold":0,"franchise":312,"independent":127,"reseller":1},{"date":"2026-04-03","vins":445,"images":9622,"live":142,"console_dl":142,"console_ul":69,"dms_dl":69,"pending":1,"no_data":22,"not_found":0,"hold":0,"franchise":340,"independent":105,"reseller":0},{"date":"2026-04-04","vins":492,"images":11422,"live":155,"console_dl":155,"console_ul":80,"dms_dl":80,"pending":1,"no_data":21,"not_found":0,"hold":0,"franchise":361,"independent":131,"reseller":0},{"date":"2026-04-06","vins":190,"images":5000,"live":83,"console_dl":83,"console_ul":8,"dms_dl":8,"pending":1,"no_data":7,"not_found":0,"hold":0,"franchise":160,"independent":30,"reseller":0},{"date":"2026-04-07","vins":432,"images":8830,"live":99,"console_dl":99,"console_ul":103,"dms_dl":103,"pending":1,"no_data":27,"not_found":0,"hold":0,"franchise":309,"independent":122,"reseller":0},{"date":"2026-04-08","vins":400,"images":8704,"live":137,"console_dl":137,"console_ul":57,"dms_dl":57,"pending":0,"no_data":12,"not_found":0,"hold":0,"franchise":294,"independent":106,"reseller":0},{"date":"2026-04-09","vins":741,"images":14908,"live":271,"console_dl":271,"console_ul":88,"dms_dl":88,"pending":2,"no_data":21,"not_found":0,"hold":0,"franchise":400,"independent":319,"reseller":0},{"date":"2026-04-10","vins":359,"images":8380,"live":132,"console_dl":117,"console_ul":50,"dms_dl":50,"pending":0,"no_data":10,"not_found":0,"hold":0,"franchise":234,"independent":125,"reseller":0},{"date":"2026-04-11","vins":421,"images":8095,"live":166,"console_dl":153,"console_ul":51,"dms_dl":51,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":235,"independent":186,"reseller":0},{"date":"2026-04-13","vins":360,"images":8398,"live":136,"console_dl":136,"console_ul":36,"dms_dl":36,"pending":7,"no_data":9,"not_found":0,"hold":0,"franchise":208,"independent":152,"reseller":0},{"date":"2026-04-14","vins":610,"images":10166,"live":205,"console_dl":205,"console_ul":85,"dms_dl":85,"pending":10,"no_data":20,"not_found":0,"hold":0,"franchise":160,"independent":450,"reseller":0},{"date":"2026-04-15","vins":616,"images":10888,"live":227,"console_dl":227,"console_ul":70,"dms_dl":70,"pending":3,"no_data":19,"not_found":0,"hold":0,"franchise":261,"independent":355,"reseller":0},{"date":"2026-04-16","vins":377,"images":7446,"live":128,"console_dl":128,"console_ul":49,"dms_dl":49,"pending":3,"no_data":20,"not_found":0,"hold":0,"franchise":244,"independent":133,"reseller":0},{"date":"2026-04-17","vins":516,"images":11634,"live":173,"console_dl":173,"console_ul":75,"dms_dl":75,"pending":7,"no_data":13,"not_found":0,"hold":0,"franchise":308,"independent":208,"reseller":0},{"date":"2026-04-18","vins":334,"images":7372,"live":138,"console_dl":138,"console_ul":17,"dms_dl":17,"pending":7,"no_data":17,"not_found":0,"hold":0,"franchise":163,"independent":171,"reseller":0},{"date":"2026-04-20","vins":326,"images":6800,"live":67,"console_dl":67,"console_ul":81,"dms_dl":81,"pending":7,"no_data":23,"not_found":0,"hold":0,"franchise":194,"independent":132,"reseller":0},{"date":"2026-04-21","vins":412,"images":9316,"live":144,"console_dl":144,"console_ul":50,"dms_dl":50,"pending":7,"no_data":17,"not_found":0,"hold":0,"franchise":244,"independent":168,"reseller":0},{"date":"2026-04-22","vins":363,"images":7202,"live":114,"console_dl":114,"console_ul":55,"dms_dl":55,"pending":7,"no_data":18,"not_found":0,"hold":0,"franchise":236,"independent":127,"reseller":0},{"date":"2026-04-23","vins":382,"images":8456,"live":125,"console_dl":125,"console_ul":51,"dms_dl":51,"pending":8,"no_data":22,"not_found":0,"hold":0,"franchise":218,"independent":163,"reseller":0},{"date":"2026-04-24","vins":494,"images":11396,"live":166,"console_dl":166,"console_ul":69,"dms_dl":69,"pending":8,"no_data":16,"not_found":0,"hold":0,"franchise":243,"independent":251,"reseller":0},{"date":"2026-04-25","vins":78,"images":1034,"live":34,"console_dl":34,"console_ul":0,"dms_dl":0,"pending":0,"no_data":10,"not_found":0,"hold":0,"franchise":1,"independent":77,"reseller":0},{"date":"2026-04-27","vins":428,"images":9782,"live":145,"console_dl":145,"console_ul":56,"dms_dl":56,"pending":7,"no_data":19,"not_found":0,"hold":0,"franchise":250,"independent":178,"reseller":0},{"date":"2026-04-28","vins":56,"images":710,"live":18,"console_dl":18,"console_ul":3,"dms_dl":3,"pending":0,"no_data":14,"not_found":0,"hold":0,"franchise":3,"independent":53,"reseller":0},{"date":"2026-04-29","vins":417,"images":10490,"live":110,"console_dl":110,"console_ul":85,"dms_dl":85,"pending":11,"no_data":16,"not_found":0,"hold":0,"franchise":259,"independent":158,"reseller":0},{"date":"2026-05-01","vins":726,"images":15190,"live":251,"console_dl":251,"console_ul":103,"dms_dl":103,"pending":8,"no_data":10,"not_found":0,"hold":0,"franchise":441,"independent":285,"reseller":0},{"date":"2026-05-02","vins":277,"images":6488,"live":71,"console_dl":71,"console_ul":61,"dms_dl":61,"pending":0,"no_data":13,"not_found":0,"hold":0,"franchise":185,"independent":92,"reseller":0},{"date":"2026-05-04","vins":405,"images":7452,"live":187,"console_dl":187,"console_ul":9,"dms_dl":9,"pending":0,"no_data":13,"not_found":0,"hold":0,"franchise":195,"independent":210,"reseller":0},{"date":"2026-05-05","vins":320,"images":8628,"live":57,"console_dl":57,"console_ul":96,"dms_dl":96,"pending":0,"no_data":14,"not_found":0,"hold":0,"franchise":186,"independent":134,"reseller":0},{"date":"2026-05-06","vins":610,"images":12898,"live":272,"console_dl":272,"console_ul":26,"dms_dl":26,"pending":0,"no_data":14,"not_found":0,"hold":0,"franchise":388,"independent":222,"reseller":0},{"date":"2026-05-07","vins":489,"images":18048,"live":224,"console_dl":224,"console_ul":15,"dms_dl":15,"pending":0,"no_data":11,"not_found":0,"hold":0,"franchise":18,"independent":471,"reseller":0},{"date":"2026-05-08","vins":298,"images":6652,"live":43,"console_dl":43,"console_ul":106,"dms_dl":106,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":256,"independent":42,"reseller":0},{"date":"2026-05-09","vins":1292,"images":24792,"live":530,"console_dl":530,"console_ul":116,"dms_dl":116,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":684,"independent":608,"reseller":0},{"date":"2026-05-18","vins":322,"images":8946,"live":110,"console_dl":110,"console_ul":51,"dms_dl":51,"pending":0,"no_data":0,"not_found":0,"hold":0,"franchise":16,"independent":306,"reseller":0}];
 
-var TOP_ACCOUNTS=[{name:"Covert Ford Lincoln",vins:10921},{name:"Charlie clark - Harlingen",vins:6684},{name:"Charlie clark -Brownsville",vins:6304},{name:"Bravo auto group",vins:4666},{name:"Charlie clark -Hyundai",vins:3145},{name:"MEI Inc",vins:2004},{name:"Beck Motors",vins:1823},{name:"Hawthorne Auto Square",vins:1784},{name:"Momentum Motor Group LLC",vins:1784},{name:"Lamacchia Honda",vins:1766}];
-var PERSONS=[{name:"Karmendra Singh",vins:40197,color:"#00d4ff"},{name:"Vishal Singh",vins:37386,color:"#b06cff"},{name:"Ankit Sharma",vins:23743,color:"#ffb224"},{name:"Gaurav Kumar",vins:3921,color:"#00e676"},{name:"Nishant",vins:2287,color:"#ff4d6a"},{name:"Sumit rana",vins:558,color:"#607b99"}];
+var MONTHLY=[{m:"Aug '25",vins:5567,images:148035,live:2060,console_dl:876,console_ul:1832,dms_dl:770,pending:0,no_data:29},{m:"Sep '25",vins:13949,images:364751,live:3913,console_dl:3880,console_ul:2810,dms_dl:2809,pending:0,no_data:471},{m:"Oct '25",vins:15845,images:378905,live:4502,console_dl:4643,console_ul:2760,dms_dl:2666,pending:70,no_data:1011},{m:"Nov '25",vins:12960,images:342620,live:3356,console_dl:3382,console_ul:2685,dms_dl:2685,pending:1,no_data:820},{m:"Dec '25",vins:11311,images:273366,live:2836,console_dl:2816,console_ul:2240,dms_dl:2449,pending:0,no_data:964},{m:"Jan '26",vins:9666,images:228436,live:2489,console_dl:2497,console_ul:1878,dms_dl:1820,pending:3,no_data:971},{m:"Feb '26",vins:12368,images:281805,live:3499,console_dl:3499,console_ul:2282,dms_dl:2332,pending:27,no_data:729},{m:"Mar '26",vins:11537,images:252375,live:4099,console_dl:3204,console_ul:1890,dms_dl:1890,pending:37,no_data:417},{m:"Apr '26",vins:10150,images:215493,live:3399,console_dl:3371,console_ul:1430,dms_dl:1430,pending:102,no_data:418},{m:"May '26",vins:4739,images:109094,live:1745,console_dl:1745,console_ul:583,dms_dl:583,pending:8,no_data:75}];
 
+var PERSONS=[{name:"Karmendra Singh",vins:40197,images:942032,live:13008,pending:11,pct:37.2},{name:"Vishal Singh",vins:37386,images:865511,live:10191,pending:190,pct:34.6},{name:"Ankit Sharma",vins:23743,images:645580,live:6329,pending:4,pct:22.0},{name:"Gaurav Kumar",vins:3921,images:85014,live:1245,pending:43,pct:3.6},{name:"Nishant",vins:2287,images:39487,live:955,pending:0,pct:2.1},{name:"Sumit rana",vins:558,images:17256,live:170,pending:0,pct:0.5}];
+var PERSON_COLORS=["#4285f4","#34a853","#fbbc04","#ea4335","#9334e6","#129eaf"];
+
+var DMS_DATA=[{name:"DS",vins:26663},{name:"DC",vins:13328},{name:"V-auto",vins:11864},{name:"Dealer On",vins:10921},{name:"CFS",vins:7808},{name:"IDMS",vins:7105},{name:"Dealer.com",vins:4790},{name:"DCS",vins:3921},{name:"Dealer Cloud",vins:2651},{name:"Inventory+",vins:1860}];
+
+var TOP_ACCOUNTS=[{name:"Covert Ford Lincoln",vins:10921,images:247807},{name:"Charlie clark - Harlingen",vins:6684,images:133892},{name:"Charlie clark - Brownsville",vins:6304,images:126466},{name:"Bravo auto group",vins:4666,images:74516},{name:"Charlie clark - Hyundai",vins:3145,images:51401},{name:"MEI Inc",vins:2004,images:22438},{name:"Beck Motors",vins:1823,images:67939},{name:"Hawthorne Auto Square",vins:1784,images:43619},{name:"Momentum Motor Group",vins:1784,images:36436},{name:"Lamacchia Honda",vins:1766,images:53984},{name:"Sprinkler",vins:1742,images:50231},{name:"Charlie Clark Hyundai Phrr",vins:1702,images:27331},{name:"Metri Motors",vins:1374,images:65341},{name:"Certified Autoplex",vins:1373,images:144701}];
+
+// ══ STATE ══
 var DAILY = SEED.slice();
+var sortCol='date', sortDir=-1;
+var filterState={period:'30',from:'',to:'',person:'',type:'',account:'',dms:''};
 
-// ── CLOCK
-setInterval(function(){
-  var n=new Date();
-  document.getElementById('clock').textContent=n.toLocaleTimeString('en-IN',{hour12:false});
-},1000);
+// ══ CLOCK ══
+function tick(){var n=new Date(),t=n.toLocaleTimeString('en-IN',{hour12:false});document.getElementById('navClock').textContent=t;document.getElementById('footerTime').textContent='Last updated: '+n.toLocaleDateString('en-IN');}
+setInterval(tick,1000);tick();
 
-// ── FILE UPLOAD
-document.getElementById('fileInput').addEventListener('change',function(e){
-  var f=e.target.files[0]; if(!f) return;
-  var r=new FileReader();
-  r.onload=function(ev){processCSV(ev.target.result,f.name)};
-  r.readAsText(f); e.target.value='';
-});
-var dz=document.getElementById('dropZone');
-dz.addEventListener('dragover',function(e){e.preventDefault();dz.style.borderColor='#00d4ff'});
-dz.addEventListener('dragleave',function(){dz.style.borderColor='#1a3050'});
-dz.addEventListener('drop',function(e){
-  e.preventDefault();dz.style.borderColor='#1a3050';
-  var f=e.dataTransfer.files[0];if(!f||!f.name.endsWith('.csv'))return;
-  var r=new FileReader();
-  r.onload=function(ev){processCSV(ev.target.result,f.name)};
-  r.readAsText(f);
-});
+// ══ UTILS ══
+var tip=document.getElementById('tip');
+function showTip(e,h){tip.innerHTML=h;tip.style.display='block';moveTip(e);}
+function moveTip(e){tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';}
+function hideTip(){tip.style.display='none';}
+document.addEventListener('mousemove',function(e){if(tip.style.display==='block')moveTip(e);});
+function fmt(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':n.toLocaleString();}
+function fmtF(n){return n.toLocaleString();}
+function pct(a,b){return b>0?((a/b)*100).toFixed(1)+'%':'0%';}
 
-function parseDate(s){
-  if(!s)return null;
-  var m=s.match(/^(\d{1,2})-([A-Za-z]+)-(\d{2,4})$/);
-  if(m){
-    var mo={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'}[m[2].toLowerCase().slice(0,3)];
-    if(!mo)return null;
-    var yr=m[3];if(yr.length===2)yr=(parseInt(yr)<50?'20':'19')+yr;
-    return yr+'-'+mo+'-'+(m[1].length===1?'0':'')+m[1];
+// ══ FILTER LOGIC ══
+function getFiltered(){
+  var d=DAILY.slice();
+  // date range
+  var p=document.getElementById('fPeriod').value;
+  if(p==='custom'){
+    var from=document.getElementById('fDateFrom').value;
+    var to=document.getElementById('fDateTo').value;
+    if(from) d=d.filter(function(r){return r.date>=from;});
+    if(to) d=d.filter(function(r){return r.date<=to;});
+  } else if(p!=='all'){
+    var days=parseInt(p);
+    var allDates=DAILY.map(function(r){return r.date;}).sort();
+    var last=allDates[allDates.length-1];
+    var cut=new Date(last);cut.setDate(cut.getDate()-days);
+    var cutStr=cut.toISOString().slice(0,10);
+    d=d.filter(function(r){return r.date>=cutStr;});
   }
-  var m2=s.match(/^(\d{1,2})-(\d{2})-(\d{4})$/);
-  if(m2)return m2[3]+'-'+m2[2]+'-'+(m2[1].length===1?'0':'')+m2[1];
-  return null;
+  updateChips(p);
+  return d;
 }
 
-function processCSV(text,fname){
-  var lines=text.trim().split('\n');
-  var headers=lines[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'')});
-  var idx={};headers.forEach(function(h,i){idx[h]=i});
-  var daily={};var total=0;
-  for(var i=1;i<lines.length;i++){
-    var cols=lines[i].split(',').map(function(c){return c.trim().replace(/^"|"$/g,'')});
-    if(!cols[0])continue;total++;
-    var key=parseDate(cols[idx['Date']]||'');if(!key)continue;
-    if(!daily[key])daily[key]={date:key,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
-    var img=parseInt(cols[idx['Image Count']])||0;
-    var type=(cols[idx['Type']]||'').trim();
-    var acct=(cols[idx['Account Sub Type']]||'').trim();
-    daily[key].vins++;daily[key].images+=img;
-    if(type==='Live')daily[key].live++;
-    else if(type==='Console Download')daily[key].console_dl++;
-    else if(type==='Console Upload')daily[key].console_ul++;
-    else if(type==='DMS Download')daily[key].dms_dl++;
-    else if(type==='Pending')daily[key].pending++;
-    else if(type==='No Data Available')daily[key].no_data++;
-    else if(type==='Not Found')daily[key].not_found++;
-    else if(type==='Hold')daily[key].hold++;
-    if(acct==='FRANCHISE')daily[key].franchise++;
-    else if(acct==='INDEPENDENT')daily[key].independent++;
-    else if(acct==='RESELLER')daily[key].reseller++;
+function quickPeriod(){
+  var p=document.getElementById('fPeriod').value;
+  var custom=p==='custom';
+  document.getElementById('fDateFrom').style.display=custom?'':'none';
+  document.getElementById('fDateTo').style.display=custom?'':'none';
+  renderAll();
+}
+function applyFilters(){renderAll();}
+function resetFilters(){
+  document.getElementById('fPeriod').value='30';
+  document.getElementById('fPerson').value='';
+  document.getElementById('fType').value='';
+  document.getElementById('fAccount').value='';
+  document.getElementById('fDMS').value='';
+  document.getElementById('fDateFrom').style.display='none';
+  document.getElementById('fDateTo').style.display='none';
+  renderAll();
+}
+function updateChips(p){
+  var chips=[];
+  if(p!=='all'&&p!=='custom') chips.push(p+' days');
+  if(p==='custom'){
+    var f=document.getElementById('fDateFrom').value,t=document.getElementById('fDateTo').value;
+    if(f||t) chips.push((f||'start')+' → '+(t||'end'));
   }
-  var merged={};SEED.forEach(function(r){merged[r.date]=r});
-  Object.values(daily).forEach(function(r){merged[r.date]=r});
-  DAILY=Object.values(merged).sort(function(a,b){return a.date.localeCompare(b.date)});
-  var st=document.getElementById('uStatus');
-  st.style.display='block';st.textContent='✓ '+fname+' · '+total.toLocaleString()+' rows merged';
-  document.getElementById('hdrRows').textContent=DAILY.reduce(function(s,d){return s+d.vins},0).toLocaleString();
-  document.getElementById('hdrDays').textContent=DAILY.length;
+  var pr=document.getElementById('fPerson').value;
+  var ty=document.getElementById('fType').value;
+  var ac=document.getElementById('fAccount').value;
+  var dm=document.getElementById('fDMS').value;
+  if(pr) chips.push(pr);
+  if(ty) chips.push(ty);
+  if(ac) chips.push(ac);
+  if(dm) chips.push(dm);
+  document.getElementById('activeChips').innerHTML=chips.map(function(c){
+    return '<div class="chip">'+c+'</div>';
+  }).join('');
+}
+
+// ══ UPLOAD ══
+document.getElementById('fileInput').addEventListener('change',function(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(ev){parseCSV(ev.target.result,f.name);};
+  r.readAsText(f);e.target.value='';
+});
+var dz=document.getElementById('dropZone');
+dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',function(){dz.classList.remove('drag');});
+dz.addEventListener('drop',function(e){
+  e.preventDefault();dz.classList.remove('drag');
+  var f=e.dataTransfer.files[0];if(!f||!f.name.endsWith('.csv'))return;
+  var r=new FileReader();
+  r.onload=function(ev){parseCSV(ev.target.result,f.name);};
+  r.readAsText(f);
+});
+function parseCSV(text,fname){
+  var lines=text.trim().split('\n');
+  var hdr=lines[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'');});
+  var idx={};hdr.forEach(function(h,i){idx[h]=i;});
+  var daily={};
+  function pd(s){
+    if(!s)return null;
+    var m=s.match(/^(\d{1,2})-([A-Za-z]+)-(\d{2,4})$/);
+    if(m){var mo={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+    var mn=mo[m[2].toLowerCase().slice(0,3)];if(!mn)return null;
+    var yr=m[3];if(yr.length===2)yr=(parseInt(yr)<50?'20':'19')+yr;
+    return yr+'-'+mn+'-'+(m[1].length===1?'0':'')+m[1];}
+    return null;
+  }
+  for(var i=1;i<lines.length;i++){
+    var cols=lines[i].split(',').map(function(c){return c.trim().replace(/^"|"$/g,'');});
+    var dr=pd(cols[idx['Date']]||'');if(!dr)continue;
+    if(!daily[dr])daily[dr]={date:dr,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
+    var img=parseInt(cols[idx['Image Count']])||0;
+    var tp=(cols[idx['Type']]||'').trim();
+    var at=(cols[idx['Account Sub Type']]||'').trim();
+    daily[dr].vins++;daily[dr].images+=img;
+    if(tp==='Live')daily[dr].live++;
+    else if(tp==='Console Download')daily[dr].console_dl++;
+    else if(tp==='Console Upload')daily[dr].console_ul++;
+    else if(tp==='DMS Download')daily[dr].dms_dl++;
+    else if(tp==='Pending')daily[dr].pending++;
+    else if(tp==='No Data Available')daily[dr].no_data++;
+    else if(tp==='Not Found')daily[dr].not_found++;
+    else if(tp==='Hold')daily[dr].hold++;
+    if(at==='FRANCHISE')daily[dr].franchise++;
+    else if(at==='INDEPENDENT')daily[dr].independent++;
+    else if(at==='RESELLER')daily[dr].reseller++;
+  }
+  var merged={};
+  SEED.forEach(function(r){merged[r.date]=r;});
+  Object.values(daily).forEach(function(r){merged[r.date]=r;});
+  DAILY=Object.values(merged).sort(function(a,b){return a.date.localeCompare(b.date);});
+  var cnt=Object.keys(daily).length;
+  document.getElementById('uploadStatus').classList.add('show');
+  document.getElementById('uploadMsg').textContent=fname+' · '+cnt+' new days merged';
   renderAll();
 }
 
-// ── UTILS
-var tip=document.getElementById('tip');
-function showTip(e,h){tip.innerHTML=h;tip.style.display='block';mv(e)}
-function mv(e){tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-8)+'px'}
-function hideTip(){tip.style.display='none'}
-document.addEventListener('mousemove',function(e){if(tip.style.display==='block')mv(e)});
-function fmt(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':n.toLocaleString()}
-function fmtF(n){return n.toLocaleString()}
-function sum(key){return DAILY.reduce(function(s,r){return s+(r[key]||0)},0)}
-
-// ── KPIs
-function renderKPIs(){
-  var tot=sum('vins'),live=sum('live'),cdl=sum('console_dl'),cul=sum('console_ul'),dms=sum('dms_dl'),pend=sum('pending')+sum('hold'),imgs=sum('images');
-  document.getElementById('k0').textContent=fmtF(tot);
-  document.getElementById('k0s').textContent=DAILY.length+' active days';
-  document.getElementById('k1').textContent=fmtF(live);
-  document.getElementById('k1s').textContent=tot?(((live/tot)*100).toFixed(1)+'% of total'):'—';
-  document.getElementById('k2').textContent=fmtF(cdl);
-  document.getElementById('k2s').textContent=tot?(((cdl/tot)*100).toFixed(1)+'% of total'):'—';
-  document.getElementById('k3').textContent=fmtF(cul);
-  document.getElementById('k3s').textContent=tot?(((cul/tot)*100).toFixed(1)+'% of total'):'—';
-  document.getElementById('k4').textContent=fmtF(dms);
-  document.getElementById('k4s').textContent=tot?(((dms/tot)*100).toFixed(1)+'% of total'):'—';
-  document.getElementById('k5').textContent=fmtF(pend);
-  document.getElementById('k6').textContent=fmt(imgs);
-  document.getElementById('k6s').textContent=tot?('avg '+Math.round(imgs/tot)+'/VIN'):'—';
+// ══ SCORECARDS ══
+function renderScores(d){
+  var tot=d.reduce(function(s,r){return s+r.vins;},0);
+  var live=d.reduce(function(s,r){return s+r.live;},0);
+  var cdl=d.reduce(function(s,r){return s+r.console_dl;},0);
+  var cul=d.reduce(function(s,r){return s+r.console_ul;},0);
+  var dms=d.reduce(function(s,r){return s+r.dms_dl;},0);
+  var pend=d.reduce(function(s,r){return s+r.pending+r.hold;},0);
+  var imgs=d.reduce(function(s,r){return s+r.images;},0);
+  function set(id,vm,sm){document.getElementById(id).textContent=vm;document.getElementById(id+'m').textContent=sm;}
+  set('s0',fmtF(tot),d.length+' active days');
+  set('s1',fmtF(live),pct(live,tot)+' of total');
+  set('s2',fmtF(cdl),pct(cdl,tot)+' of total');
+  set('s3',fmtF(cul),pct(cul,tot)+' of total');
+  set('s4',fmtF(dms),pct(dms,tot)+' of total');
+  set('s5',fmtF(pend),pend>0?'⚠ Needs attention':'✓ Clear');
+  set('s6',fmt(imgs),tot>0?'Avg '+Math.round(imgs/tot)+' per VIN':'—');
 }
 
-// ── BAR CHART
+// ══ BAR CHART ══
 function renderBar(){
-  var d=DAILY.slice(-30);
-  document.getElementById('barBadge').textContent='LAST '+d.length+' DAYS';
+  var range=document.getElementById('barRange').value;
+  var d=range==='all'?DAILY:DAILY.slice(-parseInt(range));
+  document.getElementById('barSubtitle').textContent=(range==='all'?'All '+d.length:range)+' days · '+d.length+' data points';
   var wrap=document.getElementById('barChart');wrap.innerHTML='';
-  var maxV=Math.max.apply(null,d.map(function(r){return r.vins}));
-  var H=108;
+  if(!d.length)return;
+  var maxV=Math.max.apply(null,d.map(function(r){return r.vins;}));
+  var H=152;
   d.forEach(function(row){
     var col=document.createElement('div');col.className='bar-col';
-    var h=Math.max(4,(row.vins/maxV)*H);
-    var segs=[{v:row.live,c:'#00e676'},{v:row.console_dl,c:'#4488ff'},{v:row.console_ul,c:'#b06cff'},{v:row.dms_dl,c:'#ffb224'},{v:row.pending+row.no_data+row.not_found+row.hold,c:'#607b99'}];
-    var stk=document.createElement('div');stk.className='bar-stk';stk.style.height=h+'px';
+    var h=Math.max(3,(row.vins/maxV)*H);
+    var segs=[
+      {v:row.live,c:'#34a853'},{v:row.console_dl,c:'#4285f4'},
+      {v:row.console_ul,c:'#9334e6'},{v:row.dms_dl,c:'#f29900'},
+      {v:row.pending,c:'#d93025'},{v:row.no_data+row.not_found+row.hold,c:'#dadce0'}
+    ];
+    var stack=document.createElement('div');stack.className='bar-stack';stack.style.height=h+'px';
     segs.forEach(function(s){
       if(!s.v)return;
       var sg=document.createElement('div');sg.className='bar-seg';
       sg.style.height=((s.v/row.vins)*100)+'%';sg.style.background=s.c;
-      stk.appendChild(sg);
+      stack.appendChild(sg);
     });
-    stk.addEventListener('mouseenter',function(e){
-      showTip(e,'<b style="color:#00d4ff">'+row.date+'</b><br>VINs: <b>'+row.vins+'</b> &nbsp; Images: '+fmtF(row.images)+'<br><span style="color:#00e676">●</span> Live: '+row.live+'<br><span style="color:#4488ff">●</span> Cons DL: '+row.console_dl+'<br><span style="color:#b06cff">●</span> Cons UL: '+row.console_ul+'<br><span style="color:#ffb224">●</span> DMS DL: '+row.dms_dl+'<br><span style="color:#ff4d6a">●</span> Pending: '+row.pending);
+    stack.addEventListener('mouseenter',function(e){
+      showTip(e,'<b>'+row.date+'</b><br>VINs: <b>'+row.vins+'</b> &nbsp; Images: '+fmtF(row.images)+'<br>🟢 Live: '+row.live+'<br>🔵 Console DL: '+row.console_dl+'<br>🟣 Console UL: '+row.console_ul+'<br>🟡 DMS DL: '+row.dms_dl+'<br>🔴 Pending: '+row.pending);
     });
-    stk.addEventListener('mouseleave',hideTip);
-    var lbl=document.createElement('div');lbl.className='bar-d';lbl.textContent=row.date.slice(5);
-    col.appendChild(stk);col.appendChild(lbl);wrap.appendChild(col);
+    stack.addEventListener('mouseleave',hideTip);
+    var lbl=document.createElement('div');lbl.className='bar-lbl';
+    lbl.textContent=row.date.slice(5);
+    col.appendChild(stack);col.appendChild(lbl);wrap.appendChild(col);
   });
 }
 
-// ── DONUT
+// ══ DONUT ══
 function renderDonut(){
-  var fr=sum('franchise'),ind=sum('independent'),re=sum('reseller'),tot=sum('vins'),na=Math.max(0,tot-fr-ind-re);
-  var slices=[{l:'Franchise',v:fr,c:'#4488ff'},{l:'Independent',v:ind,c:'#00d4ff'},{l:'Reseller',v:re,c:'#b06cff'},{l:'N/A',v:na,c:'#607b99'}];
-  var total=slices.reduce(function(s,i){return s+i.v},0);
-  var cv=document.getElementById('donut'),ctx=cv.getContext('2d');
-  var cx=60,cy=60,r=48,ir=28;
+  var totFr=DAILY.reduce(function(s,r){return s+r.franchise;},0);
+  var totIn=DAILY.reduce(function(s,r){return s+r.independent;},0);
+  var totRe=DAILY.reduce(function(s,r){return s+r.reseller;},0);
+  var total=DAILY.reduce(function(s,r){return s+r.vins;},0);
+  var totNA=Math.max(0,total-totFr-totIn-totRe);
+  var slices=[{l:'Franchise',v:totFr,c:'#4285f4'},{l:'Independent',v:totIn,c:'#34a853'},{l:'Reseller',v:totRe,c:'#fbbc04'},{l:'N/A',v:totNA,c:'#dadce0'}];
+  var cv=document.getElementById('donutCanvas'),ctx=cv.getContext('2d');
+  var cx=60,cy=60,r=50,ir=30;
   ctx.clearRect(0,0,120,120);
   var angle=-Math.PI/2;
   slices.forEach(function(s){
     if(!s.v)return;
     var sw=(s.v/total)*Math.PI*2;
-    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+sw);ctx.closePath();ctx.fillStyle=s.c;ctx.fill();angle+=sw;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+sw);ctx.closePath();
+    ctx.fillStyle=s.c;ctx.fill();angle+=sw;
   });
-  ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='#0a1628';ctx.fill();
-  ctx.fillStyle='#d0e4f5';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(fmt(total),cx,cy-3);ctx.fillStyle='#5080a0';ctx.font='8px monospace';ctx.fillText('VINs',cx,cy+10);
-  document.getElementById('dLeg').innerHTML=slices.filter(function(s){return s.v>0}).map(function(s){
-    return '<div class="dl-row"><div class="dl-dot" style="background:'+s.c+'"></div><span class="dl-name">'+s.l+'</span><span class="dl-pct">'+((s.v/total)*100).toFixed(1)+'%</span><span class="dl-n">'+fmtF(s.v)+'</span></div>';
+  ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.fillStyle='#202124';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(fmt(total),cx,cy-3);
+  ctx.fillStyle='#5f6368';ctx.font='9px Arial';ctx.fillText('VINs',cx,cy+10);
+  document.getElementById('donutLeg').innerHTML=slices.filter(function(s){return s.v>0;}).map(function(s){
+    return '<div class="leg-row"><div class="leg-dot" style="background:'+s.c+'"></div><span class="leg-name">'+s.l+'</span><span class="leg-pct">'+pct(s.v,total)+'</span><span class="leg-count">'+fmtF(s.v)+'</span></div>';
   }).join('');
 }
 
-// ── TYPE BARS
-function renderTypes(){
-  var types=[{n:'Live',v:sum('live'),c:'#00e676'},{n:'Console DL',v:sum('console_dl'),c:'#4488ff'},{n:'Console UL',v:sum('console_ul'),c:'#b06cff'},{n:'DMS Download',v:sum('dms_dl'),c:'#ffb224'},{n:'No Data',v:sum('no_data'),c:'#607b99'},{n:'Pending',v:sum('pending'),c:'#ff4d6a'},{n:'Not Found',v:sum('not_found'),c:'#475569'},{n:'Hold',v:sum('hold'),c:'#94a3b8'}].filter(function(t){return t.v>0});
-  var maxV=Math.max.apply(null,types.map(function(t){return t.v}));
+// ══ LINE CHART ══
+function renderLine(){
+  var svg=document.getElementById('lineChart');
+  var W=svg.clientWidth||600,H=200;
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  var pad={t:10,r:20,b:30,l:50};
+  var cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
+  var series=[
+    {key:'vins',c:'#4285f4',label:'Total VINs'},
+    {key:'live',c:'#34a853',label:'Live'},
+    {key:'console_dl',c:'#1a73e8',label:'Console DL'},
+    {key:'console_ul',c:'#9334e6',label:'Console UL'},
+    {key:'dms_dl',c:'#f29900',label:'DMS DL'}
+  ];
+  var maxV=Math.max.apply(null,MONTHLY.map(function(m){return m.vins;}));
+  var n=MONTHLY.length;
+  function x(i){return pad.l+(i/(n-1))*cW;}
+  function y(v){return pad.t+(1-v/maxV)*cH;}
+  var html='';
+  // grid lines
+  for(var g=0;g<=4;g++){
+    var yg=pad.t+(g/4)*cH;
+    var val=Math.round(maxV*(1-g/4));
+    html+='<line x1="'+pad.l+'" y1="'+yg+'" x2="'+(pad.l+cW)+'" y2="'+yg+'" stroke="#e8eaed" stroke-width="1"/>';
+    html+='<text x="'+(pad.l-6)+'" y="'+(yg+4)+'" text-anchor="end" font-size="9" fill="#9aa0a6">'+fmt(val)+'</text>';
+  }
+  // x labels
+  MONTHLY.forEach(function(m,i){
+    html+='<text x="'+x(i)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="#9aa0a6">'+m.m+'</text>';
+  });
+  // series
+  series.forEach(function(s){
+    var pts=MONTHLY.map(function(m,i){return x(i)+','+y(m[s.key]);}).join(' ');
+    html+='<polyline points="'+pts+'" fill="none" stroke="'+s.c+'" stroke-width="2" stroke-linejoin="round"/>';
+    MONTHLY.forEach(function(m,i){
+      html+='<circle cx="'+x(i)+'" cy="'+y(m[s.key])+'" r="3" fill="'+s.c+'" stroke="#fff" stroke-width="1.5"/>';
+    });
+  });
+  svg.innerHTML=html;
+  document.getElementById('lineLegend').innerHTML=series.map(function(s){
+    return '<div class="cl-item"><div class="cl-dot" style="background:'+s.c+'"></div>'+s.label+'</div>';
+  }).join('');
+}
+
+// ══ TYPE BARS ══
+function renderTypes(d){
+  var types=[
+    {n:'Live',v:d.reduce(function(s,r){return s+r.live;},0),c:'#34a853'},
+    {n:'Console DL',v:d.reduce(function(s,r){return s+r.console_dl;},0),c:'#4285f4'},
+    {n:'Console UL',v:d.reduce(function(s,r){return s+r.console_ul;},0),c:'#9334e6'},
+    {n:'DMS Download',v:d.reduce(function(s,r){return s+r.dms_dl;},0),c:'#f29900'},
+    {n:'No Data',v:d.reduce(function(s,r){return s+r.no_data;},0),c:'#80868b'},
+    {n:'Pending',v:d.reduce(function(s,r){return s+r.pending;},0),c:'#d93025'},
+    {n:'Not Found',v:d.reduce(function(s,r){return s+r.not_found;},0),c:'#ea4335'},
+    {n:'Hold',v:d.reduce(function(s,r){return s+r.hold;},0),c:'#fa7b17'}
+  ].filter(function(t){return t.v>0;});
+  var maxV=Math.max.apply(null,types.map(function(t){return t.v;}));
   document.getElementById('typeBars').innerHTML=types.map(function(t){
-    return '<div class="t-row"><div class="t-name">'+t.n+'</div><div class="t-bg"><div class="t-fill" style="width:'+((t.v/maxV)*100).toFixed(1)+'%;background:'+t.c+'"></div></div><div class="t-cnt">'+fmt(t.v)+'</div></div>';
+    return '<div class="hbar-row"><div class="hbar-name">'+t.n+'</div><div class="hbar-bg"><div class="hbar-fill" style="width:'+((t.v/maxV)*100).toFixed(1)+'%;background:'+t.c+'"></div></div><div class="hbar-val">'+fmt(t.v)+'</div></div>';
   }).join('');
 }
 
-// ── TEAM TABLE
-function renderTeam(){
-  var maxV=Math.max.apply(null,PERSONS.map(function(p){return p.vins}));
-  document.getElementById('teamTbl').innerHTML='<thead><tr><th>Member</th><th>VINs</th></tr></thead><tbody>'+
-    PERSONS.map(function(p){
-      return '<tr><td><div class="t-nm">'+p.name+'</div><div class="mini-bg"><div class="mini-fill" style="width:'+((p.vins/maxV)*100).toFixed(1)+'%;background:'+p.color+'"></div></div></td><td><span class="chip" style="background:rgba(0,212,255,.08);color:'+p.color+'">'+fmt(p.vins)+'</span></td></tr>';
-    }).join('')+'</tbody>';
+// ══ DMS BARS ══
+function renderDMS(){
+  var maxV=DMS_DATA[0].vins;
+  var colors=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#e8453c','#0f9d58'];
+  document.getElementById('dmsBars').innerHTML=DMS_DATA.map(function(d,i){
+    return '<div class="hbar-row"><div class="hbar-name">'+d.name+'</div><div class="hbar-bg"><div class="hbar-fill" style="width:'+((d.vins/maxV)*100).toFixed(1)+'%;background:'+colors[i%colors.length]+'"></div></div><div class="hbar-val">'+fmt(d.vins)+'</div></div>';
+  }).join('');
 }
 
-// ── ACCOUNT TABLE
+// ══ TEAM CARDS ══
+function renderTeam(){
+  var maxV=PERSONS[0].vins;
+  document.getElementById('teamCards').innerHTML=PERSONS.map(function(p,i){
+    var c=PERSON_COLORS[i];
+    var r=22,stroke=2,circ=2*Math.PI*r,dash=(p.pct/100)*circ;
+    var svg='<svg class="team-ring" width="52" height="52" viewBox="0 0 52 52">'
+      +'<circle cx="26" cy="26" r="'+r+'" fill="none" stroke="#f1f3f4" stroke-width="'+stroke+'"/>'
+      +'<circle cx="26" cy="26" r="'+r+'" fill="none" stroke="'+c+'" stroke-width="'+stroke+'" stroke-dasharray="'+dash+' '+circ+'" stroke-dashoffset="'+circ/4+'" stroke-linecap="round"/>'
+      +'<text x="26" y="26" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="'+c+'">'+p.pct+'%</text>'
+      +'</svg>';
+    return '<div class="team-card">'+svg
+      +'<div class="team-info"><div class="team-name">'+p.name+'</div>'
+      +'<div class="team-meta">Live: '+fmtF(p.live)+' &nbsp;·&nbsp; Pending: '+p.pending+'</div>'
+      +'<div class="bar-inline" style="width:120px"><div class="bar-inline-fill" style="width:'+((p.vins/maxV)*100).toFixed(1)+'%;background:'+c+'"></div></div>'
+      +'</div>'
+      +'<div class="team-vals"><div class="team-vins">'+fmt(p.vins)+'</div><div class="team-img">'+fmt(p.images)+' imgs</div></div>'
+      +'</div>';
+  }).join('');
+}
+
+// ══ ACCOUNT BARS ══
 function renderAccounts(){
   var maxV=TOP_ACCOUNTS[0].vins;
-  document.getElementById('accTbl').innerHTML='<thead><tr><th>#</th><th>Account</th><th>VINs</th></tr></thead><tbody>'+
+  var colors=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#e8453c','#0f9d58','#f29900','#673ab7','#00bcd4','#ff5722'];
+  document.getElementById('accBars').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 24px">'+
     TOP_ACCOUNTS.map(function(a,i){
-      return '<tr><td style="font-family:monospace;font-size:9px;color:#3a6080">'+(i+1)+'</td><td><span style="font-size:11px;color:#c0d8f0">'+a.name+'</span><div class="mini-bg" style="width:100%"><div class="mini-fill" style="width:'+((a.vins/maxV)*100).toFixed(1)+'%;background:#00d4ff;opacity:.35"></div></div></td><td style="font-family:monospace;font-size:10px;color:#00d4ff">'+fmtF(a.vins)+'</td></tr>';
-    }).join('')+'</tbody>';
+      return '<div class="hbar-row" style="margin-bottom:6px">'
+        +'<div class="hbar-name" style="width:160px">'+a.name+'</div>'
+        +'<div class="hbar-bg"><div class="hbar-fill" style="width:'+((a.vins/maxV)*100).toFixed(1)+'%;background:'+colors[i%colors.length]+'"></div></div>'
+        +'<div class="hbar-val">'+fmtF(a.vins)+'</div>'
+        +'</div>';
+    }).join('')+'</div>';
 }
 
-// ── DAILY TABLE
+// ══ TABLE ══
+var tableSort={col:'date',dir:-1};
+function sortTable(col){
+  if(tableSort.col===col)tableSort.dir*=-1;else{tableSort.col=col;tableSort.dir=-1;}
+  renderTable();
+}
 function renderTable(){
-  document.getElementById('dtBadge').textContent=DAILY.length+' DAYS';
-  document.getElementById('dtBody').innerHTML=DAILY.slice().reverse().map(function(r){
-    return '<tr><td style="color:#00d4ff;font-weight:700">'+r.date+'</td><td style="color:#d0e4f5">'+fmtF(r.vins)+'</td><td style="color:#5080a0">'+fmtF(r.images)+'</td><td><span class="pill" style="background:rgba(0,230,118,.1);color:#00e676">'+r.live+'</span></td><td><span class="pill" style="background:rgba(68,136,255,.1);color:#4488ff">'+r.console_dl+'</span></td><td><span class="pill" style="background:rgba(176,108,255,.1);color:#b06cff">'+r.console_ul+'</span></td><td><span class="pill" style="background:rgba(255,178,36,.1);color:#ffb224">'+r.dms_dl+'</span></td><td><span class="pill" style="background:rgba(255,77,106,.1);color:#ff4d6a">'+r.pending+'</span></td><td><span class="pill" style="background:rgba(96,123,153,.1);color:#607b99">'+r.no_data+'</span></td><td style="color:#5080a0">'+r.franchise+'</td><td style="color:#5080a0">'+r.independent+'</td></tr>';
+  var d=getFiltered();
+  var q=(document.getElementById('tableSearch').value||'').toLowerCase();
+  if(q) d=d.filter(function(r){return r.date.includes(q)||String(r.vins).includes(q);});
+  d=d.slice().sort(function(a,b){
+    var av=a[tableSort.col]||0,bv=b[tableSort.col]||0;
+    if(typeof av==='string')return tableSort.dir*(av<bv?-1:av>bv?1:0);
+    return tableSort.dir*(av-bv);
+  });
+  document.getElementById('tableBadge').textContent=d.length+' rows';
+  var rows=[...d].reverse();
+  document.getElementById('dtBody').innerHTML=rows.map(function(r){
+    return '<tr>'
+      +'<td class="td-date">'+r.date+'</td>'
+      +'<td class="td-num"><b>'+fmtF(r.vins)+'</b></td>'
+      +'<td class="td-muted">'+fmtF(r.images)+'</td>'
+      +'<td><span class="pill pill-live">'+r.live+'</span></td>'
+      +'<td><span class="pill pill-cdl">'+r.console_dl+'</span></td>'
+      +'<td><span class="pill pill-cul">'+r.console_ul+'</span></td>'
+      +'<td><span class="pill pill-dms">'+r.dms_dl+'</span></td>'
+      +'<td><span class="pill pill-pend">'+r.pending+'</span></td>'
+      +'<td><span class="pill pill-nodata">'+r.no_data+'</span></td>'
+      +'<td class="td-muted">'+r.franchise+'</td>'
+      +'<td class="td-muted">'+r.independent+'</td>'
+      +'<td class="td-muted">'+r.reseller+'</td>'
+      +'</tr>';
   }).join('');
 }
 
-// ── INIT — runs immediately on page load, no dependencies needed
-function renderAll(){renderKPIs();renderBar();renderDonut();renderTypes();renderTeam();renderAccounts();renderTable()}
-document.addEventListener('DOMContentLoaded', function() {
-  try { renderAll(); } catch(e) { console.error('Dashboard render error:', e); }
-});
-// Also fire immediately in case DOM is already ready
-if (document.readyState !== 'loading') {
-  try { renderAll(); } catch(e) {}
+// ══ RENDER ALL ══
+function renderAll(){
+  var d=getFiltered();
+  renderScores(d);
+  renderBar();
+  renderDonut();
+  renderLine();
+  renderTypes(d);
+  renderDMS();
+  renderTeam();
+  renderAccounts();
+  renderTable();
 }
+
+document.addEventListener('DOMContentLoaded',function(){
+  try{renderAll();}catch(e){console.error(e);}
+});
+if(document.readyState!=='loading'){try{renderAll();}catch(e){}}
 </script>
 </body>
 </html>
