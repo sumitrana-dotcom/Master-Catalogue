@@ -464,21 +464,47 @@ function parseDate(s) {
   return null;
 }
 
+// ── Proper CSV line parser (handles spaces, quoted commas, all field types) ──
+function splitCSVLine(line) {
+  var result = [], cur = '', inQ = false;
+  for (var ci = 0; ci < line.length; ci++) {
+    var ch = line[ci];
+    if (ch === '"') {
+      inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      result.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
 function processCSV(text) {
   var lines = text.trim().split(/\r?\n/);
-  var hdr = lines[0].split(',').map(function(h){return h.trim().replace(/^"|"$/g,'');});
-  var idx = {};
-  hdr.forEach(function(h,i){idx[h]=i;});
+  if (lines.length < 2) return;
 
-  var daily = {};
-  var personMap = {};
+  // Parse header using robust splitter
+  var hdr = splitCSVLine(lines[0]);
+  var idx = {};
+  hdr.forEach(function(h, i) { idx[h.trim()] = i; });
+
+  // Debug: log found columns
+  console.log('[CSV] Columns found:', hdr);
+  console.log('[CSV] Type column at index:', idx['Type']);
+  console.log('[CSV] Total rows:', lines.length - 1);
+
+  var daily      = {};
+  var personMap  = {};
   var accountMap = {};
-  var dmsMap = {};
+  var dmsMap     = {};
+  var typeCounts = {};
 
   for (var i = 1; i < lines.length; i++) {
-    // handle quoted commas
-    var cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
-    cols = cols.map(function(c){return (c||'').trim().replace(/^"|"$/g,'');});
+    if (!lines[i].trim()) continue;
+    var cols = splitCSVLine(lines[i]);
 
     var dateRaw = cols[idx['Date']] || '';
     var dr = parseDate(dateRaw);
@@ -486,81 +512,89 @@ function processCSV(text) {
 
     var img = parseInt(cols[idx['Image Count']] || '0') || 0;
     var tp  = (cols[idx['Type']] || '').trim();
-    var at  = (cols[idx['Account Sub Type']] || '').trim();
+    var at  = (cols[idx['Account Sub Type']] || '').trim().toUpperCase();
     var per = (cols[idx['Person Responsible']] || '').trim();
     var acc = (cols[idx['Account Name ']] || cols[idx['Account Name']] || '').trim();
     var dms = (cols[idx['DMS']] || '').trim();
 
-    // daily
-    if (!daily[dr]) daily[dr] = {date:dr,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
-    var d = daily[dr];
-    d.vins++; d.images += img;
-    if (tp==='Live') d.live++;
-    else if (tp==='Console Download') d.console_dl++;
-    else if (tp==='Console Upload') d.console_ul++;
-    else if (tp==='DMS Download') d.dms_dl++;
-    else if (tp==='Pending') d.pending++;
-    else if (tp==='No Data Available') d.no_data++;
-    else if (tp==='Not Found') d.not_found++;
-    else if (tp==='Hold') d.hold++;
-    if (at==='FRANCHISE') d.franchise++;
-    else if (at==='INDEPENDENT') d.independent++;
-    else if (at==='RESELLER') d.reseller++;
+    // Count types for debug
+    typeCounts[tp] = (typeCounts[tp] || 0) + 1;
 
-    // person
+    // ── Daily aggregation ──
+    if (!daily[dr]) daily[dr] = {date:dr,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
+    var drow = daily[dr];
+    drow.vins++;
+    drow.images += img;
+    if      (tp === 'Live')               drow.live++;
+    else if (tp === 'Console Download')   drow.console_dl++;
+    else if (tp === 'Console Upload')     drow.console_ul++;
+    else if (tp === 'DMS Download')       drow.dms_dl++;
+    else if (tp === 'Pending')            drow.pending++;
+    else if (tp === 'No Data Available')  drow.no_data++;
+    else if (tp === 'Not Found')          drow.not_found++;
+    else if (tp === 'Hold')               drow.hold++;
+
+    if      (at === 'FRANCHISE')   drow.franchise++;
+    else if (at === 'INDEPENDENT') drow.independent++;
+    else if (at === 'RESELLER')    drow.reseller++;
+
+    // ── Person ──
     if (per) {
       if (!personMap[per]) personMap[per] = {name:per,vins:0,images:0,live:0,pending:0};
-      personMap[per].vins++; personMap[per].images += img;
-      if (tp==='Live') personMap[per].live++;
-      if (tp==='Pending') personMap[per].pending++;
+      personMap[per].vins++;
+      personMap[per].images += img;
+      if (tp === 'Live')    personMap[per].live++;
+      if (tp === 'Pending') personMap[per].pending++;
     }
-    // account
+
+    // ── Account ──
     if (acc) {
       if (!accountMap[acc]) accountMap[acc] = {name:acc,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0};
-      accountMap[acc].vins++; accountMap[acc].images += img;
-      if (tp==='Live') accountMap[acc].live++;
-      else if (tp==='Console Download') accountMap[acc].console_dl++;
-      else if (tp==='Console Upload') accountMap[acc].console_ul++;
-      else if (tp==='DMS Download') accountMap[acc].dms_dl++;
+      accountMap[acc].vins++;
+      accountMap[acc].images += img;
+      if (tp === 'Live')             accountMap[acc].live++;
+      else if (tp === 'Console Download') accountMap[acc].console_dl++;
+      else if (tp === 'Console Upload')   accountMap[acc].console_ul++;
+      else if (tp === 'DMS Download')     accountMap[acc].dms_dl++;
     }
-    // dms
-    if (dms) { dmsMap[dms] = (dmsMap[dms]||0) + 1; }
+
+    // ── DMS ──
+    if (dms) dmsMap[dms] = (dmsMap[dms] || 0) + 1;
   }
+
+  console.log('[CSV] Type counts:', JSON.stringify(typeCounts));
 
   DAILY = Object.values(daily).sort(function(a,b){return a.date.localeCompare(b.date);});
   TOTAL_ROWS = DAILY.reduce(function(s,r){return s+r.vins;},0);
 
-  // monthly
+  // ── Monthly ──
   var mMap = {};
-  DAILY.forEach(function(r){
-    var mk = r.date.slice(0,7); // yyyy-mm
+  var MON_LABELS = {'2025-08':"Aug '25",'2025-09':"Sep '25",'2025-10':"Oct '25",'2025-11':"Nov '25",'2025-12':"Dec '25",'2026-01':"Jan '26",'2026-02':"Feb '26",'2026-03':"Mar '26",'2026-04':"Apr '26",'2026-05':"May '26",'2026-06':"Jun '26"};
+  DAILY.forEach(function(r) {
+    var mk = r.date.slice(0,7);
     if (!mMap[mk]) mMap[mk] = {mk:mk,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0};
-    var m = mMap[mk];
-    m.vins+=r.vins; m.images+=r.images; m.live+=r.live;
-    m.console_dl+=r.console_dl; m.console_ul+=r.console_ul;
-    m.dms_dl+=r.dms_dl; m.pending+=r.pending; m.no_data+=r.no_data;
+    mMap[mk].vins+=r.vins; mMap[mk].images+=r.images; mMap[mk].live+=r.live;
+    mMap[mk].console_dl+=r.console_dl; mMap[mk].console_ul+=r.console_ul;
+    mMap[mk].dms_dl+=r.dms_dl; mMap[mk].pending+=r.pending; mMap[mk].no_data+=r.no_data;
   });
-  var MON_LABELS = {
-    '2025-08':"Aug '25",'2025-09':"Sep '25",'2025-10':"Oct '25",
-    '2025-11':"Nov '25",'2025-12':"Dec '25",'2026-01':"Jan '26",
-    '2026-02':"Feb '26",'2026-03':"Mar '26",'2026-04':"Apr '26",'2026-05':"May '26",'2026-06':"Jun '26"
-  };
   MONTHLY = Object.values(mMap).sort(function(a,b){return a.mk.localeCompare(b.mk);}).map(function(m){
     m.m = MON_LABELS[m.mk] || m.mk; return m;
   });
 
-  // persons
+  // ── Persons ──
   PERSONS = Object.values(personMap).sort(function(a,b){return b.vins-a.vins;}).map(function(p){
     p.pct = TOTAL_ROWS>0?((p.vins/TOTAL_ROWS)*100).toFixed(1):'0'; return p;
   });
 
-  // dms
+  // ── DMS ──
   DMS_DATA = Object.entries(dmsMap).map(function(e){return {name:e[0],vins:e[1]};})
     .sort(function(a,b){return b.vins-a.vins;}).slice(0,12);
 
-  // top accounts
-  TOP_ACCOUNTS = Object.values(accountMap).filter(function(a){return a.live>0;}).sort(function(a,b){return b.live-a.live;}).slice(0,15);
+  // ── Top Accounts (by Live) ──
+  TOP_ACCOUNTS = Object.values(accountMap).filter(function(a){return a.live>0;})
+    .sort(function(a,b){return b.live-a.live;}).slice(0,15);
 }
+
 
 // ═══════════════════════════════════════════════════
 // FETCH
