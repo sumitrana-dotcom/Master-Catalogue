@@ -94,6 +94,8 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .score-stripe{position:absolute;top:0;left:0;right:0;height:3px}
 .score-label{font-size:11px;color:#5f6368;font-weight:500;margin-bottom:8px}
 .score-val{font-size:36px;font-weight:700;line-height:1;margin-bottom:6px}
+.score-val-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.score-img-ct{font-size:13px;font-weight:600;color:#5f6368;background:#f1f3f4;border-radius:20px;padding:3px 10px;margin-bottom:4px;white-space:nowrap;letter-spacing:.2px}
 .score-meta{font-size:11px;color:#9aa0a6}
 
 /* CHART ROWS */
@@ -284,10 +286,10 @@ table.dtbl tr:last-child td{border-bottom:none}
   <!-- SCORECARDS -->
   <div class="sec-hd"><span class="sec-hd-title">Key Metrics</span></div>
   <div class="score-grid">
-    <div class="score"><div class="score-stripe" style="background:#34a853"></div><div class="score-label">Live</div><div class="score-val" id="s1" style="color:#34a853">—</div><div class="score-meta" id="s1m"></div></div>
-    <div class="score"><div class="score-stripe" style="background:#1a73e8"></div><div class="score-label">Console Download</div><div class="score-val" id="s2" style="color:#1a73e8">—</div><div class="score-meta" id="s2m"></div></div>
-    <div class="score"><div class="score-stripe" style="background:#9334e6"></div><div class="score-label">Console Upload</div><div class="score-val" id="s3" style="color:#9334e6">—</div><div class="score-meta" id="s3m"></div></div>
-    <div class="score"><div class="score-stripe" style="background:#f29900"></div><div class="score-label">DMS Download</div><div class="score-val" id="s4" style="color:#f29900">—</div><div class="score-meta" id="s4m"></div></div>
+    <div class="score"><div class="score-stripe" style="background:#f29900"></div><div class="score-label">DMS Download</div><div class="score-val-row"><span class="score-val" id="s4" style="color:#f29900">—</span><span class="score-img-ct" id="s4i"></span></div><div class="score-meta" id="s4m"></div></div>
+    <div class="score"><div class="score-stripe" style="background:#9334e6"></div><div class="score-label">Console Upload</div><div class="score-val-row"><span class="score-val" id="s3" style="color:#9334e6">—</span><span class="score-img-ct" id="s3i"></span></div><div class="score-meta" id="s3m"></div></div>
+    <div class="score"><div class="score-stripe" style="background:#1a73e8"></div><div class="score-label">Console Download</div><div class="score-val-row"><span class="score-val" id="s2" style="color:#1a73e8">—</span><span class="score-img-ct" id="s2i"></span></div><div class="score-meta" id="s2m"></div></div>
+    <div class="score"><div class="score-stripe" style="background:#34a853"></div><div class="score-label">Live</div><div class="score-val-row"><span class="score-val" id="s1" style="color:#34a853">—</span><span class="score-img-ct" id="s1i"></span></div><div class="score-meta" id="s1m"></div></div>
   </div>
 
   <!-- TREND + SPLIT -->
@@ -354,7 +356,7 @@ table.dtbl tr:last-child td{border-bottom:none}
   <div class="sec-hd"><span class="sec-hd-title">Account Analytics</span></div>
   <div class="chart-row row-full">
     <div class="panel">
-      <div class="panel-hd"><div class="panel-title">Top Accounts by VIN Count</div><div class="panel-sub" id="accSub"></div></div>
+      <div class="panel-hd"><div class="panel-title">Top Accounts by Live VIN Count</div><div class="panel-sub" id="accSub"></div></div>
       <div class="panel-body" id="accBars"></div>
     </div>
   </div>
@@ -514,8 +516,12 @@ function processCSV(text) {
     }
     // account
     if (acc) {
-      if (!accountMap[acc]) accountMap[acc] = {name:acc,vins:0,images:0};
+      if (!accountMap[acc]) accountMap[acc] = {name:acc,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0};
       accountMap[acc].vins++; accountMap[acc].images += img;
+      if (tp==='Live') accountMap[acc].live++;
+      else if (tp==='Console Download') accountMap[acc].console_dl++;
+      else if (tp==='Console Upload') accountMap[acc].console_ul++;
+      else if (tp==='DMS Download') accountMap[acc].dms_dl++;
     }
     // dms
     if (dms) { dmsMap[dms] = (dmsMap[dms]||0) + 1; }
@@ -553,7 +559,7 @@ function processCSV(text) {
     .sort(function(a,b){return b.vins-a.vins;}).slice(0,12);
 
   // top accounts
-  TOP_ACCOUNTS = Object.values(accountMap).sort(function(a,b){return b.vins-a.vins;}).slice(0,15);
+  TOP_ACCOUNTS = Object.values(accountMap).filter(function(a){return a.live>0;}).sort(function(a,b){return b.live-a.live;}).slice(0,15);
 }
 
 // ═══════════════════════════════════════════════════
@@ -690,10 +696,15 @@ function renderScores(d) {
   var pend=d.reduce(function(s,r){return s+r.pending+r.hold;},0);
   var imgs=d.reduce(function(s,r){return s+r.images;},0);
   function set(id,v,m){document.getElementById(id).textContent=v;document.getElementById(id+'m').textContent=m;}
-  set('s1',fmtF(live),pct(live,tot)+' of total · '+d.length+' days');
-  set('s2',fmtF(cdl),pct(cdl,tot)+' of total');
-  set('s3',fmtF(cul),pct(cul,tot)+' of total');
-  set('s4',fmtF(dms),pct(dms,tot)+' of total');
+  var live_img = d.reduce(function(s,r){return s + Math.round(r.images * (r.vins>0?r.live/r.vins:0));},0);
+  var cdl_img  = d.reduce(function(s,r){return s + Math.round(r.images * (r.vins>0?r.console_dl/r.vins:0));},0);
+  var cul_img  = d.reduce(function(s,r){return s + Math.round(r.images * (r.vins>0?r.console_ul/r.vins:0));},0);
+  var dms_img  = d.reduce(function(s,r){return s + Math.round(r.images * (r.vins>0?r.dms_dl/r.vins:0));},0);
+  function setImg(id,v){var el=document.getElementById(id);if(el)el.textContent='('+fmt(v)+' imgs)';}
+  set('s1',fmtF(live),pct(live,tot)+' of total · '+d.length+' days');   setImg('s1i',live_img);
+  set('s2',fmtF(cdl),pct(cdl,tot)+' of total');                          setImg('s2i',cdl_img);
+  set('s3',fmtF(cul),pct(cul,tot)+' of total');                          setImg('s3i',cul_img);
+  set('s4',fmtF(dms),pct(dms,tot)+' of total');                          setImg('s4i',dms_img);
 }
 
 // ═══════════════════════════════════════════════════
@@ -881,15 +892,24 @@ function renderTeam() {
 // ═══════════════════════════════════════════════════
 function renderAccounts() {
   if (!TOP_ACCOUNTS.length) return;
-  var maxV=TOP_ACCOUNTS[0].vins;
-  var colors=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#e8453c','#0f9d58','#f29900','#673ab7','#00bcd4','#ff5722','#607d8b'];
-  document.getElementById('accSub').textContent='Top '+TOP_ACCOUNTS.length+' accounts · '+TOTAL_ROWS.toLocaleString()+' total VINs';
-  document.getElementById('accBars').innerHTML=
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 28px">'+
+  var maxV = TOP_ACCOUNTS[0].live;
+  var colors = ['#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853','#34a853'];
+  var totalLive = TOP_ACCOUNTS.reduce(function(s,a){return s+a.live;},0);
+  document.getElementById('accSub').textContent = 'Top '+TOP_ACCOUNTS.length+' accounts · '+totalLive.toLocaleString()+' live VINs';
+  document.getElementById('accBars').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 36px">'+
     TOP_ACCOUNTS.map(function(a,i){
-      return '<div class="hbar-row"><div class="hbar-name" style="width:170px">'+a.name+'</div>'
-        +'<div class="hbar-bg"><div class="hbar-fill" style="width:'+((a.vins/maxV)*100).toFixed(1)+'%;background:'+colors[i%colors.length]+'"></div></div>'
-        +'<div class="hbar-val">'+fmtF(a.vins)+'</div></div>';
+      var bar = ((a.live/maxV)*100).toFixed(1);
+      var livePct = a.vins>0?((a.live/a.vins)*100).toFixed(1):'0';
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">'
+        +'<div style="font-size:11px;color:#202124;width:180px;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500">'+a.name+'</div>'
+        +'<div style="flex:1;height:10px;background:#f1f3f4;border-radius:5px;overflow:hidden;cursor:pointer" '
+          +'onmouseenter="showTip(event,\'<b>'+a.name.replace(/'/g,"\\'")+'</b><br>🟢 Live: <b>'+a.live.toLocaleString()+'</b> ('+livePct+'%)<br>Total VINs: '+a.vins.toLocaleString()+'<br>📷 Images: '+a.images.toLocaleString()+'<br>Console DL: '+a.console_dl+'<br>Console UL: '+a.console_ul+'<br>DMS DL: '+a.dms_dl+'\')" '
+          +'onmouseleave="hideTip()">'
+          +'<div style="height:100%;width:'+bar+'%;background:#34a853;border-radius:5px;transition:width .6s ease"></div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:#1e8e3e;font-weight:700;width:54px;text-align:right;flex-shrink:0">'+a.live.toLocaleString()+'</div>'
+        +'</div>';
     }).join('')+'</div>';
 }
 
