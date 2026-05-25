@@ -405,6 +405,7 @@ table.dtbl tr:last-child td{border-bottom:none}
 // CONFIG
 // ═══════════════════════════════════════════════════
 var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
+var SHEET_URL_FRESH = SHEET_URL + '&t=' + Date.now(); // cache buster
 // CORS proxy — tries direct first, falls back to proxy
 var CORS_PROXY = 'https://corsproxy.io/?';
 
@@ -500,17 +501,16 @@ function processCSV(text) {
     idx[h.trim().toLowerCase()] = i;
   });
 
-  // Find Image Count column index — try name first, always fallback to col 8
-  var IMG_COL  = (idx['Image Count'] !== undefined) ? idx['Image Count']
-               : (idx['image count'] !== undefined) ? idx['image count']
-               : 8;
-  var TYPE_COL = (idx['Type'] !== undefined) ? idx['Type'] : 9;
-  var DATE_COL = (idx['Date'] !== undefined) ? idx['Date'] : 0;
-  var ACCT_COL = (idx['Account Sub Type'] !== undefined) ? idx['Account Sub Type'] : 3;
-  var PERS_COL = (idx['Person Responsible'] !== undefined) ? idx['Person Responsible'] : 5;
-  var ACCN_COL = (idx['Account Name '] !== undefined) ? idx['Account Name ']
-               : (idx['Account Name'] !== undefined) ? idx['Account Name'] : 6;
-  var DMS_COL  = (idx['DMS'] !== undefined) ? idx['DMS'] : 4;
+  // FIXED COLUMN INDICES based on confirmed sheet structure:
+  // A=Date B=EnterpriseID C=TeamID D=AccountSubType E=DMS F=PersonResponsible
+  // G=AccountName H=VIN I=ImageCount J=Type K=Remarks
+  var DATE_COL = 0;   // A - Date
+  var ACCT_COL = 3;   // D - Account Sub Type
+  var DMS_COL  = 4;   // E - DMS
+  var PERS_COL = 5;   // F - Person Responsible
+  var ACCN_COL = 6;   // G - Account Name
+  var IMG_COL  = 8;   // I - Image Count  ← HARDCODED, always column I
+  var TYPE_COL = 9;   // J - Type
 
   console.log('[CSV] IMG_COL='+IMG_COL+' TYPE_COL='+TYPE_COL+' rows='+(lines.length-1));
   console.log('[CSV] Header col '+IMG_COL+' = "'+hdr[IMG_COL]+'" | col '+TYPE_COL+' = "'+hdr[TYPE_COL]+'"');
@@ -669,10 +669,11 @@ function fetchAndRender() {
   document.getElementById('refreshIcon').classList.add('spinning');
 
   // Try direct fetch first (works if CORS allowed), then proxy
-  fetchURL(SHEET_URL)
+  var freshURL = SHEET_URL + '&t=' + Date.now();
+  fetchURL(freshURL)
     .catch(function(){
       document.getElementById('loaderSub').textContent = 'Using CORS proxy...';
-      return fetchURL(CORS_PROXY + encodeURIComponent(SHEET_URL));
+      return fetchURL(CORS_PROXY + encodeURIComponent(freshURL));
     })
     .then(function(text){
       processCSV(text);
