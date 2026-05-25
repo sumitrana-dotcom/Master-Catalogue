@@ -86,14 +86,14 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .sec-hd::after{content:'';flex:1;height:1px;background:#e8eaed}
 
 /* SCORECARDS */
-.score-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-bottom:20px}
-@media(max-width:1400px){.score-grid{grid-template-columns:repeat(4,1fr)}}
-@media(max-width:800px){.score-grid{grid-template-columns:repeat(2,1fr)}}
-.score{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;transition:box-shadow .15s;position:relative;overflow:hidden}
+.score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+@media(max-width:900px){.score-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.score-grid{grid-template-columns:1fr}}
+.score{background:#fff;border:1px solid var(--border);border-radius:8px;padding:22px 20px;transition:box-shadow .15s;position:relative;overflow:hidden}
 .score:hover{box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .score-stripe{position:absolute;top:0;left:0;right:0;height:3px}
 .score-label{font-size:11px;color:#5f6368;font-weight:500;margin-bottom:8px}
-.score-val{font-size:26px;font-weight:700;line-height:1;margin-bottom:4px}
+.score-val{font-size:36px;font-weight:700;line-height:1;margin-bottom:6px}
 .score-meta{font-size:11px;color:#9aa0a6}
 
 /* CHART ROWS */
@@ -284,13 +284,10 @@ table.dtbl tr:last-child td{border-bottom:none}
   <!-- SCORECARDS -->
   <div class="sec-hd"><span class="sec-hd-title">Key Metrics</span></div>
   <div class="score-grid">
-    <div class="score"><div class="score-stripe" style="background:#4285f4"></div><div class="score-label">Total VINs</div><div class="score-val" id="s0" style="color:#4285f4">—</div><div class="score-meta" id="s0m"></div></div>
     <div class="score"><div class="score-stripe" style="background:#34a853"></div><div class="score-label">Live</div><div class="score-val" id="s1" style="color:#34a853">—</div><div class="score-meta" id="s1m"></div></div>
-    <div class="score"><div class="score-stripe" style="background:#1a73e8"></div><div class="score-label">Console DL</div><div class="score-val" id="s2" style="color:#1a73e8">—</div><div class="score-meta" id="s2m"></div></div>
-    <div class="score"><div class="score-stripe" style="background:#9334e6"></div><div class="score-label">Console UL</div><div class="score-val" id="s3" style="color:#9334e6">—</div><div class="score-meta" id="s3m"></div></div>
+    <div class="score"><div class="score-stripe" style="background:#1a73e8"></div><div class="score-label">Console Download</div><div class="score-val" id="s2" style="color:#1a73e8">—</div><div class="score-meta" id="s2m"></div></div>
+    <div class="score"><div class="score-stripe" style="background:#9334e6"></div><div class="score-label">Console Upload</div><div class="score-val" id="s3" style="color:#9334e6">—</div><div class="score-meta" id="s3m"></div></div>
     <div class="score"><div class="score-stripe" style="background:#f29900"></div><div class="score-label">DMS Download</div><div class="score-val" id="s4" style="color:#f29900">—</div><div class="score-meta" id="s4m"></div></div>
-    <div class="score"><div class="score-stripe" style="background:#d93025"></div><div class="score-label">Pending / Hold</div><div class="score-val" id="s5" style="color:#d93025">—</div><div class="score-meta" id="s5m"></div></div>
-    <div class="score"><div class="score-stripe" style="background:#129eaf"></div><div class="score-label">Total Images</div><div class="score-val" id="s6" style="color:#129eaf">—</div><div class="score-meta" id="s6m"></div></div>
   </div>
 
   <!-- TREND + SPLIT -->
@@ -693,13 +690,10 @@ function renderScores(d) {
   var pend=d.reduce(function(s,r){return s+r.pending+r.hold;},0);
   var imgs=d.reduce(function(s,r){return s+r.images;},0);
   function set(id,v,m){document.getElementById(id).textContent=v;document.getElementById(id+'m').textContent=m;}
-  set('s0',fmtF(tot),d.length+' active days');
-  set('s1',fmtF(live),pct(live,tot)+' of total');
+  set('s1',fmtF(live),pct(live,tot)+' of total · '+d.length+' days');
   set('s2',fmtF(cdl),pct(cdl,tot)+' of total');
   set('s3',fmtF(cul),pct(cul,tot)+' of total');
   set('s4',fmtF(dms),pct(dms,tot)+' of total');
-  set('s5',fmtF(pend),pend>0?'⚠ Needs attention':'✓ Clear');
-  set('s6',fmt(imgs),tot>0?'Avg '+Math.round(imgs/tot)+'/VIN':'—');
 }
 
 // ═══════════════════════════════════════════════════
