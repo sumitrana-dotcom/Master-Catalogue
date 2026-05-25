@@ -490,7 +490,17 @@ function processCSV(text) {
   // Parse header using robust splitter
   var hdr = splitCSVLine(lines[0]);
   var idx = {};
-  hdr.forEach(function(h, i) { idx[h.trim()] = i; });
+  // Store by original, trimmed, and lowercase for robust matching
+  hdr.forEach(function(h, i) {
+    var clean = h.trim();
+    idx[clean] = i;                    // exact trimmed
+    idx[clean.toLowerCase()] = i;     // lowercase
+    idx[h] = i;                        // original with any spaces
+  });
+  // Also store by column letter A-Z for direct access
+  hdr.forEach(function(h, i) {
+    if (i < 26) idx['col_' + String.fromCharCode(65+i)] = i;
+  });
 
   // Debug: log found columns
   console.log('[CSV] Columns found:', hdr);
@@ -512,7 +522,14 @@ function processCSV(text) {
     var dr = parseDate(dateRaw);
     if (!dr) continue;
 
-    var img = parseInt(cols[idx['Image Count']] || '0') || 0;
+    // Column I = Image Count — try multiple name variants then fall back to col I (index 8)
+    var imgCol = idx['Image Count'] !== undefined ? idx['Image Count']
+               : idx['image count'] !== undefined ? idx['image count']
+               : idx['Image count'] !== undefined ? idx['Image count']
+               : idx['col_I'] !== undefined       ? idx['col_I']
+               : 8;
+    var imgRaw = (cols[imgCol] || '').replace(/[^0-9]/g,'');
+    var img = parseInt(imgRaw) || 0;
     var tp  = (cols[idx['Type']] || '').trim();
     var at  = (cols[idx['Account Sub Type']] || '').trim().toUpperCase();
     var per = (cols[idx['Person Responsible']] || '').trim();
@@ -565,9 +582,11 @@ function processCSV(text) {
   }
 
   console.log('[CSV] Type counts:', JSON.stringify(typeCounts));
+  console.log('[CSV] TYPE_IMAGES:', JSON.stringify(TYPE_IMAGES));
+  console.log('[CSV] Sample img values from first 5 rows:', lines.slice(1,6).map(function(l){var c=splitCSVLine(l);return c[idx['Image Count']];}));
 
-  DAILY = Object.values(daily).sort(function(a,b){return a.date.localeCompare(b.date);});
-  TOTAL_ROWS = DAILY.reduce(function(s,r){return s+r.vins;},0);
+
+    TOTAL_ROWS = DAILY.reduce(function(s,r){return s+r.vins;},0);
 
   // ── Monthly ──
   var mMap = {};
