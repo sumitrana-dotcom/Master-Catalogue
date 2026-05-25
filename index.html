@@ -283,6 +283,9 @@ table.dtbl tr:last-child td{border-bottom:none}
     <span class="ds-updated" id="dsUpdated"></span>
   </div>
 
+  <!-- IMAGE DEBUG BAR -->
+  <div id="imgDebugBar" style="display:none;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#1b5e20;gap:4px;flex-wrap:wrap;align-items:center"></div>
+
   <!-- SCORECARDS -->
   <div class="sec-hd"><span class="sec-hd-title">Key Metrics</span></div>
   <div class="score-grid">
@@ -484,80 +487,80 @@ function splitCSVLine(line) {
 }
 
 function processCSV(text) {
-  var lines = text.trim().split(/\r?\n/);
+  var lines = text.trim().split(/
+?
+/);
   if (lines.length < 2) return;
 
-  // Parse header using robust splitter
+  // Parse header
   var hdr = splitCSVLine(lines[0]);
   var idx = {};
-  // Store by original, trimmed, and lowercase for robust matching
   hdr.forEach(function(h, i) {
-    var clean = h.trim();
-    idx[clean] = i;                    // exact trimmed
-    idx[clean.toLowerCase()] = i;     // lowercase
-    idx[h] = i;                        // original with any spaces
-  });
-  // Also store by column letter A-Z for direct access
-  hdr.forEach(function(h, i) {
-    if (i < 26) idx['col_' + String.fromCharCode(65+i)] = i;
+    idx[h.trim()] = i;
+    idx[h.trim().toLowerCase()] = i;
   });
 
-  // Debug: log found columns
-  console.log('[CSV] Columns found:', hdr);
-  console.log('[CSV] Type column at index:', idx['Type']);
-  console.log('[CSV] Total rows:', lines.length - 1);
+  // Find Image Count column index — try name first, always fallback to col 8
+  var IMG_COL  = (idx['Image Count'] !== undefined) ? idx['Image Count']
+               : (idx['image count'] !== undefined) ? idx['image count']
+               : 8;
+  var TYPE_COL = (idx['Type'] !== undefined) ? idx['Type'] : 9;
+  var DATE_COL = (idx['Date'] !== undefined) ? idx['Date'] : 0;
+  var ACCT_COL = (idx['Account Sub Type'] !== undefined) ? idx['Account Sub Type'] : 3;
+  var PERS_COL = (idx['Person Responsible'] !== undefined) ? idx['Person Responsible'] : 5;
+  var ACCN_COL = (idx['Account Name '] !== undefined) ? idx['Account Name ']
+               : (idx['Account Name'] !== undefined) ? idx['Account Name'] : 6;
+  var DMS_COL  = (idx['DMS'] !== undefined) ? idx['DMS'] : 4;
 
+  console.log('[CSV] IMG_COL='+IMG_COL+' TYPE_COL='+TYPE_COL+' rows='+(lines.length-1));
+  console.log('[CSV] Header col '+IMG_COL+' = "'+hdr[IMG_COL]+'" | col '+TYPE_COL+' = "'+hdr[TYPE_COL]+'"');
+
+  // Reset all state
   var daily      = {};
   var personMap  = {};
   var accountMap = {};
   var dmsMap     = {};
-  var typeCounts = {};
-  TYPE_IMAGES = {live:0, console_dl:0, console_ul:0, dms_dl:0};
+  TYPE_IMAGES    = {live:0, console_dl:0, console_ul:0, dms_dl:0};
 
   for (var i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     var cols = splitCSVLine(lines[i]);
 
-    var dateRaw = cols[idx['Date']] || '';
-    var dr = parseDate(dateRaw);
+    // Get values by fixed column index
+    var dateRaw = cols[DATE_COL] || '';
+    var dr      = parseDate(dateRaw);
     if (!dr) continue;
 
-    // Column I = Image Count — try multiple name variants then fall back to col I (index 8)
-    var imgCol = idx['Image Count'] !== undefined ? idx['Image Count']
-               : idx['image count'] !== undefined ? idx['image count']
-               : idx['Image count'] !== undefined ? idx['Image count']
-               : idx['col_I'] !== undefined       ? idx['col_I']
-               : 8;
-    var imgRaw = (cols[imgCol] || '').replace(/[^0-9]/g,'');
-    var img = parseInt(imgRaw) || 0;
-    var tp  = (cols[idx['Type']] || '').trim();
-    var at  = (cols[idx['Account Sub Type']] || '').trim().toUpperCase();
-    var per = (cols[idx['Person Responsible']] || '').trim();
-    var acc = (cols[idx['Account Name ']] || cols[idx['Account Name']] || '').trim();
-    var dms = (cols[idx['DMS']] || '').trim();
+    var imgStr  = cols[IMG_COL] || '0';
+    var img     = parseInt(imgStr.replace(/[^0-9]/g,'')) || 0;
+    var tp      = (cols[TYPE_COL] || '').trim();
+    var at      = (cols[ACCT_COL] || '').trim().toUpperCase();
+    var per     = (cols[PERS_COL] || '').trim();
+    var acc     = (cols[ACCN_COL] || '').trim();
+    var dms     = (cols[DMS_COL]  || '').trim();
 
-    // Count types for debug
-    typeCounts[tp] = (typeCounts[tp] || 0) + 1;
-
-    // ── Daily aggregation ──
+    // Daily
     if (!daily[dr]) daily[dr] = {date:dr,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
     var drow = daily[dr];
     drow.vins++;
     drow.images += img;
-    if      (tp === 'Live')               { drow.live++;       TYPE_IMAGES.live       += img; }
-    else if (tp === 'Console Download')   { drow.console_dl++; TYPE_IMAGES.console_dl += img; }
-    else if (tp === 'Console Upload')     { drow.console_ul++; TYPE_IMAGES.console_ul += img; }
-    else if (tp === 'DMS Download')       { drow.dms_dl++;     TYPE_IMAGES.dms_dl     += img; }
-    else if (tp === 'Pending')            drow.pending++;
-    else if (tp === 'No Data Available')  drow.no_data++;
-    else if (tp === 'Not Found')          drow.not_found++;
-    else if (tp === 'Hold')               drow.hold++;
 
+    // Type — accumulate VINs AND images per type
+    if      (tp === 'Live')              { drow.live++;       TYPE_IMAGES.live       += img; }
+    else if (tp === 'Console Download')  { drow.console_dl++; TYPE_IMAGES.console_dl += img; }
+    else if (tp === 'Console Upload')    { drow.console_ul++; TYPE_IMAGES.console_ul += img; }
+    else if (tp === 'DMS Download')      { drow.dms_dl++;     TYPE_IMAGES.dms_dl     += img; }
+    else if (tp === 'Pending')           { drow.pending++; }
+    else if (tp === 'No Data Available') { drow.no_data++; }
+    else if (tp === 'Not Found')         { drow.not_found++; }
+    else if (tp === 'Hold')              { drow.hold++; }
+
+    // Account type
     if      (at === 'FRANCHISE')   drow.franchise++;
     else if (at === 'INDEPENDENT') drow.independent++;
     else if (at === 'RESELLER')    drow.reseller++;
 
-    // ── Person ──
+    // Person
     if (per) {
       if (!personMap[per]) personMap[per] = {name:per,vins:0,images:0,live:0,pending:0};
       personMap[per].vins++;
@@ -566,29 +569,40 @@ function processCSV(text) {
       if (tp === 'Pending') personMap[per].pending++;
     }
 
-    // ── Account ──
+    // Account
     if (acc) {
       if (!accountMap[acc]) accountMap[acc] = {name:acc,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0};
       accountMap[acc].vins++;
       accountMap[acc].images += img;
-      if (tp === 'Live')             accountMap[acc].live++;
+      if      (tp === 'Live')            accountMap[acc].live++;
       else if (tp === 'Console Download') accountMap[acc].console_dl++;
       else if (tp === 'Console Upload')   accountMap[acc].console_ul++;
       else if (tp === 'DMS Download')     accountMap[acc].dms_dl++;
     }
 
-    // ── DMS ──
+    // DMS
     if (dms) dmsMap[dms] = (dmsMap[dms] || 0) + 1;
   }
 
-  console.log('[CSV] Type counts:', JSON.stringify(typeCounts));
-  console.log('[CSV] TYPE_IMAGES:', JSON.stringify(TYPE_IMAGES));
-  console.log('[CSV] Sample img values from first 5 rows:', lines.slice(1,6).map(function(l){var c=splitCSVLine(l);return c[idx['Image Count']];}));
+  console.log('[CSV] TYPE_IMAGES='+JSON.stringify(TYPE_IMAGES));
 
+  DAILY = Object.values(daily).sort(function(a,b){return a.date.localeCompare(b.date);});
+  TOTAL_ROWS = DAILY.reduce(function(s,r){return s+r.vins;},0);
 
-    TOTAL_ROWS = DAILY.reduce(function(s,r){return s+r.vins;},0);
+  // Show image debug bar
+  var imgDbgEl = document.getElementById('imgDebugBar');
+  if (imgDbgEl) {
+    imgDbgEl.style.display = 'flex';
+    imgDbgEl.innerHTML = '🖼 <b style="margin:0 6px">Image debug:</b>'
+      + ' Live=<b>' + TYPE_IMAGES.live.toLocaleString() + '</b> |'
+      + ' CDL=<b>' + TYPE_IMAGES.console_dl.toLocaleString() + '</b> |'
+      + ' CUL=<b>' + TYPE_IMAGES.console_ul.toLocaleString() + '</b> |'
+      + ' DMS=<b>' + TYPE_IMAGES.dms_dl.toLocaleString() + '</b> |'
+      + ' ImgCol=<b>' + IMG_COL + '</b> |'
+      + ' Rows=<b>' + (lines.length-1) + '</b>';
+  }
 
-  // ── Monthly ──
+  // Monthly
   var mMap = {};
   var MON_LABELS = {'2025-08':"Aug '25",'2025-09':"Sep '25",'2025-10':"Oct '25",'2025-11':"Nov '25",'2025-12':"Dec '25",'2026-01':"Jan '26",'2026-02':"Feb '26",'2026-03':"Mar '26",'2026-04':"Apr '26",'2026-05':"May '26",'2026-06':"Jun '26"};
   DAILY.forEach(function(r) {
@@ -602,19 +616,20 @@ function processCSV(text) {
     m.m = MON_LABELS[m.mk] || m.mk; return m;
   });
 
-  // ── Persons ──
+  // Persons
   PERSONS = Object.values(personMap).sort(function(a,b){return b.vins-a.vins;}).map(function(p){
     p.pct = TOTAL_ROWS>0?((p.vins/TOTAL_ROWS)*100).toFixed(1):'0'; return p;
   });
 
-  // ── DMS ──
+  // DMS
   DMS_DATA = Object.entries(dmsMap).map(function(e){return {name:e[0],vins:e[1]};})
     .sort(function(a,b){return b.vins-a.vins;}).slice(0,12);
 
-  // ── Top Accounts (by Live) ──
+  // Top Accounts by Live
   TOP_ACCOUNTS = Object.values(accountMap).filter(function(a){return a.live>0;})
     .sort(function(a,b){return b.live-a.live;}).slice(0,15);
 }
+
 
 
 // ═══════════════════════════════════════════════════
