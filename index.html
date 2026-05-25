@@ -414,6 +414,7 @@ var PERSONS = [];     // [{name,vins,images,live,pending,pct}]
 var DMS_DATA = [];    // [{name,vins}]
 var TOP_ACCOUNTS = [];// [{name,vins,images}]
 var TOTAL_ROWS = 0;
+var TYPE_IMAGES = {live:0, console_dl:0, console_ul:0, dms_dl:0}; // images per type
 var LAST_FETCH = null;
 var sortState = {col:'date', dir:-1};
 
@@ -501,6 +502,7 @@ function processCSV(text) {
   var accountMap = {};
   var dmsMap     = {};
   var typeCounts = {};
+  TYPE_IMAGES = {live:0, console_dl:0, console_ul:0, dms_dl:0};
 
   for (var i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
@@ -525,10 +527,10 @@ function processCSV(text) {
     var drow = daily[dr];
     drow.vins++;
     drow.images += img;
-    if      (tp === 'Live')               drow.live++;
-    else if (tp === 'Console Download')   drow.console_dl++;
-    else if (tp === 'Console Upload')     drow.console_ul++;
-    else if (tp === 'DMS Download')       drow.dms_dl++;
+    if      (tp === 'Live')               { drow.live++;       TYPE_IMAGES.live       += img; }
+    else if (tp === 'Console Download')   { drow.console_dl++; TYPE_IMAGES.console_dl += img; }
+    else if (tp === 'Console Upload')     { drow.console_ul++; TYPE_IMAGES.console_ul += img; }
+    else if (tp === 'DMS Download')       { drow.dms_dl++;     TYPE_IMAGES.dms_dl     += img; }
     else if (tp === 'Pending')            drow.pending++;
     else if (tp === 'No Data Available')  drow.no_data++;
     else if (tp === 'Not Found')          drow.not_found++;
@@ -730,15 +732,11 @@ function renderScores(d) {
   var pend=d.reduce(function(s,r){return s+r.pending+r.hold;},0);
   var imgs=d.reduce(function(s,r){return s+r.images;},0);
   function set(id,v,m){document.getElementById(id).textContent=v;document.getElementById(id+'m').textContent=m;}
-  var live_img = d.reduce(function(s,r){return s + Math.round(r.images * (r.vins>0?r.live/r.vins:0));},0);
-  var cdl_img  = d.reduce(function(s,r){return s + Math.round(r.images * (r.vins>0?r.console_dl/r.vins:0));},0);
-  var cul_img  = d.reduce(function(s,r){return s + Math.round(r.images * (r.vins>0?r.console_ul/r.vins:0));},0);
-  var dms_img  = d.reduce(function(s,r){return s + Math.round(r.images * (r.vins>0?r.dms_dl/r.vins:0));},0);
   function setImg(id,v){var el=document.getElementById(id);if(el)el.textContent='('+fmt(v)+' imgs)';}
-  set('s1',fmtF(live),pct(live,tot)+' of total · '+d.length+' days');   setImg('s1i',live_img);
-  set('s2',fmtF(cdl),pct(cdl,tot)+' of total');                          setImg('s2i',cdl_img);
-  set('s3',fmtF(cul),pct(cul,tot)+' of total');                          setImg('s3i',cul_img);
-  set('s4',fmtF(dms),pct(dms,tot)+' of total');                          setImg('s4i',dms_img);
+  set('s1',fmtF(live),pct(live,tot)+' of total · '+d.length+' days');   setImg('s1i',TYPE_IMAGES.live);
+  set('s2',fmtF(cdl),pct(cdl,tot)+' of total');                          setImg('s2i',TYPE_IMAGES.console_dl);
+  set('s3',fmtF(cul),pct(cul,tot)+' of total');                          setImg('s3i',TYPE_IMAGES.console_ul);
+  set('s4',fmtF(dms),pct(dms,tot)+' of total');                          setImg('s4i',TYPE_IMAGES.dms_dl);
 }
 
 // ═══════════════════════════════════════════════════
