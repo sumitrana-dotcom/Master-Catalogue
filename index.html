@@ -746,121 +746,107 @@ function fetchURL(url) {
 // FILTERS
 // ═══════════════════════════════════════════════════
 function getFiltered() {
-  var d = DAILY.slice();
+  var p    = document.getElementById('fPeriod').value;
+  var pr   = document.getElementById('fPerson').value;
+  var ty   = document.getElementById('fType').value;
+  var ac   = document.getElementById('fAccount').value;
+  var dm   = document.getElementById('fDMS').value;
+  var from = document.getElementById('fFrom').value;
+  var to   = document.getElementById('fTo').value;
 
-  // ── DATE / PERIOD FILTER ──
-  var p = document.getElementById('fPeriod').value;
+  // ── date cut-off ──
+  var cutFrom = '', cutTo = '';
   if (p === 'custom') {
-    var from = document.getElementById('fFrom').value;
-    var to   = document.getElementById('fTo').value;
-    if (from) d = d.filter(function(r){ return r.date >= from; });
-    if (to)   d = d.filter(function(r){ return r.date <= to; });
+    cutFrom = from; cutTo = to;
   } else if (p !== 'all') {
     var days = parseInt(p);
-    if (d.length) {
-      var last = d[d.length-1].date;
-      var cut  = new Date(last);
+    var allDates = DAILY.map(function(r){ return r.date; });
+    var last = allDates[allDates.length - 1] || '';
+    if (last) {
+      var cut = new Date(last);
       cut.setDate(cut.getDate() - days);
-      var cs = cut.toISOString().slice(0,10);
-      d = d.filter(function(r){ return r.date >= cs; });
+      cutFrom = cut.toISOString().slice(0,10);
     }
   }
 
-  // ── TYPE FILTER ──
-  var ty = document.getElementById('fType').value;
-  if (ty) {
-    d = d.map(function(r) {
-      var copy = {};
-      for (var k in r) copy[k] = r[k];
-      // zero out all type counts except the selected one
-      copy.live       = ty === 'live'       ? r.live       : 0;
-      copy.console_dl = ty === 'console_dl' ? r.console_dl : 0;
-      copy.console_ul = ty === 'console_ul' ? r.console_ul : 0;
-      copy.dms_dl     = ty === 'dms_dl'     ? r.dms_dl     : 0;
-      copy.pending    = ty === 'pending'    ? r.pending    : 0;
-      copy.no_data    = ty === 'no_data'    ? r.no_data    : 0;
-      // vins = only the selected type
-      copy.vins = copy.live + copy.console_dl + copy.console_ul + copy.dms_dl + copy.pending + copy.no_data + r.not_found + r.hold;
-      // images: proportional to selected type vins
-      copy.images = r.vins > 0 ? Math.round(r.images * (copy.vins / r.vins)) : 0;
-      return copy;
-    }).filter(function(r){ return r.vins > 0; });
-  }
+  // Type-value to CSV-Type-string map
+  var tyMap = {
+    'live':       'Live',
+    'console_dl': 'Console Download',
+    'console_ul': 'Console Upload',
+    'dms_dl':     'DMS Download',
+    'pending':    'Pending',
+    'no_data':    'No Data Available'
+  };
+  var acMap = {
+    'franchise':   'FRANCHISE',
+    'independent': 'INDEPENDENT',
+    'reseller':    'RESELLER'
+  };
 
-  // ── ACCOUNT TYPE FILTER ──
-  var ac = document.getElementById('fAccount').value;
-  if (ac) {
-    d = d.map(function(r) {
-      var copy = {};
-      for (var k in r) copy[k] = r[k];
-      copy.franchise   = ac === 'franchise'   ? r.franchise   : 0;
-      copy.independent = ac === 'independent' ? r.independent : 0;
-      copy.reseller    = ac === 'reseller'    ? r.reseller    : 0;
-      copy.vins = copy.franchise + copy.independent + copy.reseller;
-      copy.images = r.vins > 0 ? Math.round(r.images * (copy.vins / r.vins)) : 0;
-      return copy;
-    }).filter(function(r){ return r.vins > 0; });
-  }
+  // ── Filter RAW_ROWS ──
+  var rows = RAW_ROWS.filter(function(row) {
+    if (cutFrom && row.date < cutFrom) return false;
+    if (cutTo   && row.date > cutTo)   return false;
+    if (pr && row.per !== pr)          return false;
+    if (ty && row.tp  !== tyMap[ty])   return false;
+    if (ac && row.at  !== acMap[ac])   return false;
+    if (dm && row.dms !== dm)          return false;
+    return true;
+  });
 
-  // ── PERSON + DMS FILTER — re-aggregate from RAW_ROWS ──
-  var pr = document.getElementById('fPerson').value;
-  var dm = document.getElementById('fDMS').value;
+  // ── Aggregate by date ──
+  var daily = {};
+  rows.forEach(function(row) {
+    if (!daily[row.date]) daily[row.date] = {
+      date:row.date, vins:0, images:0,
+      live:0, console_dl:0, console_ul:0, dms_dl:0,
+      pending:0, no_data:0, not_found:0, hold:0,
+      franchise:0, independent:0, reseller:0
+    };
+    var d = daily[row.date];
+    d.vins++;
+    d.images += row.img;
+    if      (row.tp === 'Live')              d.live++;
+    else if (row.tp === 'Console Download')  d.console_dl++;
+    else if (row.tp === 'Console Upload')    d.console_ul++;
+    else if (row.tp === 'DMS Download')      d.dms_dl++;
+    else if (row.tp === 'Pending')           d.pending++;
+    else if (row.tp === 'No Data Available') d.no_data++;
+    if      (row.at === 'FRANCHISE')   d.franchise++;
+    else if (row.at === 'INDEPENDENT') d.independent++;
+    else if (row.at === 'RESELLER')    d.reseller++;
+  });
 
-  if ((pr || dm) && RAW_ROWS.length) {
-    // Get date range from current filtered d
-    var allowedDates = {};
-    d.forEach(function(r){ allowedDates[r.date] = true; });
+  var result = Object.values(daily).sort(function(a,b){
+    return a.date.localeCompare(b.date);
+  });
 
-    // Re-aggregate from raw rows with person/DMS filter
-    var filtDaily = {};
-    RAW_ROWS.forEach(function(row) {
-      if (!allowedDates[row.date]) return;
-      if (pr && row.per !== pr) return;
-      if (dm && row.dms !== dm) return;
-      // Also re-apply type filter
-      if (ty) {
-        var typeMap = {live:'Live',console_dl:'Console Download',console_ul:'Console Upload',dms_dl:'DMS Download',pending:'Pending',no_data:'No Data Available'};
-        if (row.tp !== typeMap[ty]) return;
-      }
-      // Also re-apply account filter
-      if (ac) {
-        var acMap = {franchise:'FRANCHISE',independent:'INDEPENDENT',reseller:'RESELLER'};
-        if (row.at !== acMap[ac]) return;
-      }
+  // ── Image totals per type (from filtered rows) ──
+  var fi = {live:0, cdl:0, cul:0, dms:0, total:0};
+  rows.forEach(function(row){
+    fi.total += row.img;
+    if      (row.tp === 'Live')             fi.live += row.img;
+    else if (row.tp === 'Console Download') fi.cdl  += row.img;
+    else if (row.tp === 'Console Upload')   fi.cul  += row.img;
+    else if (row.tp === 'DMS Download')     fi.dms  += row.img;
+  });
+  result._fi   = fi;
+  result._rows = rows.length;
 
-      if (!filtDaily[row.date]) filtDaily[row.date] = {date:row.date,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
-      var fd = filtDaily[row.date];
-      fd.vins++; fd.images += row.img;
-      if      (row.tp==='Live')              { fd.live++; }
-      else if (row.tp==='Console Download')  { fd.console_dl++; }
-      else if (row.tp==='Console Upload')    { fd.console_ul++; }
-      else if (row.tp==='DMS Download')      { fd.dms_dl++; }
-      else if (row.tp==='Pending')           { fd.pending++; }
-      else if (row.tp==='No Data Available') { fd.no_data++; }
-      if      (row.at==='FRANCHISE')   fd.franchise++;
-      else if (row.at==='INDEPENDENT') fd.independent++;
-      else if (row.at==='RESELLER')    fd.reseller++;
-    });
-    d = Object.values(filtDaily).sort(function(a,b){return a.date.localeCompare(b.date);});
-  }
-
-  // ── UPDATE CHIPS ──
+  // ── Chips ──
   var chips = [];
   if (p !== 'all' && p !== 'custom') chips.push(p + ' days');
-  if (p === 'custom') {
-    var f2 = document.getElementById('fFrom').value;
-    var t2 = document.getElementById('fTo').value;
-    if (f2 || t2) chips.push((f2||'start') + ' → ' + (t2||'end'));
-  }
+  if (p === 'custom' && (from||to))  chips.push((from||'start') + ' → ' + (to||'end'));
   if (pr) chips.push(pr);
-  if (ty) chips.push(ty.replace('_',' ').replace('console dl','Console DL').replace('console ul','Console UL').replace('dms dl','DMS DL').replace('live','Live').replace('pending','Pending').replace('no data','No Data'));
-  if (ac) chips.push(ac.charAt(0).toUpperCase()+ac.slice(1));
+  if (ty) chips.push(tyMap[ty] || ty);
+  if (ac) chips.push(acMap[ac] || ac);
   if (dm) chips.push(dm);
   document.getElementById('activeChips').innerHTML = chips.map(function(ch){
-    return '<div class="chip">'+ch+'</div>';
+    return '<div class="chip">' + ch + '</div>';
   }).join('');
 
-  return d;
+  return result;
 }
 
 function onPeriodChange() {
@@ -882,45 +868,28 @@ function resetFilters() {
 // SCORECARDS
 // ═══════════════════════════════════════════════════
 function renderScores(d) {
-  var tot=d.reduce(function(s,r){return s+r.vins;},0);
-  var live=d.reduce(function(s,r){return s+r.live;},0);
-  var cdl=d.reduce(function(s,r){return s+r.console_dl;},0);
-  var cul=d.reduce(function(s,r){return s+r.console_ul;},0);
-  var dms=d.reduce(function(s,r){return s+r.dms_dl;},0);
-  var pend=d.reduce(function(s,r){return s+r.pending+r.hold;},0);
-  var imgs=d.reduce(function(s,r){return s+r.images;},0);
-  function set(id,v,m){document.getElementById(id).textContent=v;document.getElementById(id+'m').textContent=m;}
-  // Calculate images per type from filtered data using RAW_ROWS
-  var ty_active = document.getElementById('fType') ? document.getElementById('fType').value : '';
-  var pr_active = document.getElementById('fPerson') ? document.getElementById('fPerson').value : '';
-  var dm_active = document.getElementById('fDMS') ? document.getElementById('fDMS').value : '';
-  var ac_active = document.getElementById('fAccount') ? document.getElementById('fAccount').value : '';
-  var allowedDts = {};
-  d.forEach(function(r){ allowedDts[r.date]=true; });
+  var fi  = d._fi  || {live:0, cdl:0, cul:0, dms:0, total:0};
+  var tot = d.reduce(function(s,r){ return s + r.vins; }, 0);
+  var live= d.reduce(function(s,r){ return s + r.live; }, 0);
+  var cdl = d.reduce(function(s,r){ return s + r.console_dl; }, 0);
+  var cul = d.reduce(function(s,r){ return s + r.console_ul; }, 0);
+  var dms = d.reduce(function(s,r){ return s + r.dms_dl; }, 0);
 
-  var fi = {live:0, cdl:0, cul:0, dms:0};
-  if (RAW_ROWS.length) {
-    var acMap2 = {franchise:'FRANCHISE',independent:'INDEPENDENT',reseller:'RESELLER'};
-    RAW_ROWS.forEach(function(row){
-      if (!allowedDts[row.date]) return;
-      if (pr_active && row.per !== pr_active) return;
-      if (dm_active && row.dms !== dm_active) return;
-      if (ac_active && row.at !== acMap2[ac_active]) return;
-      if (row.tp === 'Live')             fi.live += row.img;
-      else if (row.tp === 'Console Download') fi.cdl  += row.img;
-      else if (row.tp === 'Console Upload')   fi.cul  += row.img;
-      else if (row.tp === 'DMS Download')     fi.dms  += row.img;
-    });
-  } else {
-    // Fallback to global TYPE_IMAGES
-    fi = {live:TYPE_IMAGES.live, cdl:TYPE_IMAGES.console_dl, cul:TYPE_IMAGES.console_ul, dms:TYPE_IMAGES.dms_dl};
+  function set(id, v, m) {
+    var ve = document.getElementById(id);
+    var me = document.getElementById(id + 'm');
+    if (ve) ve.textContent = v;
+    if (me) me.textContent = m;
+  }
+  function setImg(id, v) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = v > 0 ? '(' + fmt(v) + ' imgs)' : '(0 imgs)';
   }
 
-  function setImg(id,v){var el=document.getElementById(id);if(el)el.textContent='('+fmt(v)+' imgs)';}
-  set('s1',fmtF(live),pct(live,tot)+' of total · '+d.length+' days');   setImg('s1i',fi.live);
-  set('s2',fmtF(cdl),pct(cdl,tot)+' of total');                          setImg('s2i',fi.cdl);
-  set('s3',fmtF(cul),pct(cul,tot)+' of total');                          setImg('s3i',fi.cul);
-  set('s4',fmtF(dms),pct(dms,tot)+' of total');                          setImg('s4i',fi.dms);
+  set('s4', fmtF(dms),  pct(dms, tot)  + ' of total');         setImg('s4i', fi.dms);
+  set('s3', fmtF(cul),  pct(cul, tot)  + ' of total');         setImg('s3i', fi.cul);
+  set('s2', fmtF(cdl),  pct(cdl, tot)  + ' of total');         setImg('s2i', fi.cdl);
+  set('s1', fmtF(live), pct(live, tot) + ' of total · ' + d.length + ' days'); setImg('s1i', fi.live);
 }
 
 // ═══════════════════════════════════════════════════
