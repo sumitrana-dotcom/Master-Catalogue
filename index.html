@@ -182,6 +182,29 @@ table.dtbl tr:hover td{background:#f8f9fa}
     <span class="error-text" id="errorText">Could not load data.</span>
     <button class="error-retry" onclick="fetchAndRender()">Retry</button>
   </div>
+  <!-- UPLOAD FALLBACK when auto-fetch fails -->
+  <div id="uploadFallback" style="display:none;background:#fff8e1;border:1px solid #ffcc02;border-radius:8px;padding:16px 20px;margin-bottom:14px">
+    <div style="font-size:13px;font-weight:700;color:#e65100;margin-bottom:8px">&#9888; Auto-fetch failed &mdash; Upload CSV manually</div>
+    <div style="font-size:12px;color:#5f6368;margin-bottom:12px">
+      Could not fetch data automatically. Please:<br>
+      1. Open your Google Sheet &rarr; <b>File &rarr; Download &rarr; CSV</b><br>
+      2. Drop or select the downloaded file below
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <label style="background:#1a73e8;color:#fff;border-radius:20px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;display:inline-block">
+        &#8679; Choose CSV File
+        <input type="file" accept=".csv" style="display:none" onchange="handleFileUpload(this)"/>
+      </label>
+      <div id="dropTarget" style="flex:1;min-width:200px;border:2px dashed #dadce0;border-radius:8px;padding:10px 16px;font-size:12px;color:#9aa0a6;text-align:center;cursor:pointer"
+        ondragover="event.preventDefault();this.style.borderColor='#1a73e8'"
+        ondragleave="this.style.borderColor='#dadce0'"
+        ondrop="event.preventDefault();this.style.borderColor='#dadce0';handleFileDrop(event)">
+        Or drag &amp; drop CSV here
+      </div>
+      <button onclick="fetchAndRender()" style="background:none;border:1px solid #dadce0;border-radius:20px;padding:7px 16px;font-size:12px;cursor:pointer;color:#5f6368">&#8635; Retry auto-fetch</button>
+    </div>
+  </div>
+
   <div class="datasource-bar" id="dsBar" style="display:none">
     <span style="font-size:16px">&#128202;</span>
     <span class="ds-text">Live data from <b>Google Sheets</b> &middot; Data VIN Level-1 &middot; Auto-refreshes on page load</span>
@@ -298,274 +321,52 @@ table.dtbl tr:hover td{background:#f8f9fa}
 <div id="tip"></div>
 
 <script>
-var SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
-var CORS_PROXY = 'https://corsproxy.io/?';
-var DAILY=[], MONTHLY=[], PERSONS=[], DMS_DATA=[], TOP_ACCOUNTS=[];
-var TOTAL_ROWS=0, RAW_ROWS=[];
-var sortState={col:'date',dir:-1};
+// ══════════════════════════════════════════════
+// ALL DATA PRE-BAKED — No Google Sheets fetch needed
+// Data from: Master Catalogue Management Tracker
+// Tab: Data VIN Level-1  |  Last updated: May 2026
+// ══════════════════════════════════════════════
 
-// Clock
+var DAILY        = _D.daily;
+var MONTHLY      = _D.monthly;
+var PERSONS      = _D.persons;
+var DMS_DATA     = _D.dms;
+var TOP_ACCOUNTS = _D.accounts;
+var TYPE_IMAGES  = _D.type_images;
+var PERSON_DAILY = _D.person_daily;
+var DMS_DAILY    = _D.dms_daily;
+var PERSON_TYPE_IMGS = _D.person_type_imgs;
+var TOTAL_ROWS   = _D.total_rows;
+var sortState    = {col:'date', dir:-1};
+
+// ── Clock ──
 function tick(){
   var n=new Date();
   document.getElementById('navClock').textContent=n.toLocaleTimeString('en-IN',{hour12:false});
-  document.getElementById('footerTime').textContent='Updated: '+n.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('footerTime').textContent='Data: Aug 2025 – May 2026 | '+n.toLocaleDateString('en-IN');
 }
 setInterval(tick,1000); tick();
 
-// Tooltip
+// ── Tooltip ──
 var tip=document.getElementById('tip');
 function showTip(e,h){tip.innerHTML=h;tip.style.display='block';moveTip(e);}
 function moveTip(e){tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-10)+'px';}
 function hideTip(){tip.style.display='none';}
 document.addEventListener('mousemove',function(e){if(tip.style.display==='block')moveTip(e);});
 
-// Utils
+// ── Utils ──
 function fmt(n){return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':n.toLocaleString();}
 function fmtF(n){return (n||0).toLocaleString();}
 function pct(a,b){return b>0?((a/b)*100).toFixed(1)+'%':'0%';}
 
-// CSV parser
-function parseDate(s){
-  if(!s)return null; s=s.trim();
-  var m=s.match(/^(\d{1,2})-([A-Za-z]+)-(\d{2,4})$/);
-  if(m){var mo={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
-    var mn=mo[m[2].toLowerCase().slice(0,3)];if(!mn)return null;
-    var yr=m[3];if(yr.length===2)yr=(parseInt(yr)<50?'20':'19')+yr;
-    return yr+'-'+mn+'-'+(m[1].length===1?'0':'')+m[1];}
-  var m2=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if(m2)return m2[3]+'-'+(m2[2].length===1?'0':'')+m2[2]+'-'+(m2[1].length===1?'0':'')+m2[1];
-  if(s.match(/^\d{4}-\d{2}-\d{2}$/))return s;
-  return null;
-}
-
-function splitCSV(line){
-  var res=[],cur='',inQ=false;
-  for(var i=0;i<line.length;i++){
-    var ch=line[i];
-    if(ch==='"'){inQ=!inQ;}
-    else if(ch===','&&!inQ){res.push(cur.trim());cur='';}
-    else{cur+=ch;}
-  }
-  res.push(cur.trim());
-  return res;
-}
-
-function processCSV(text){
-  var lines=text.trim().split(/\r?\n/);
-  if(lines.length<2)return;
-  var hdr=splitCSV(lines[0]);
-  var idx={};
-  hdr.forEach(function(h,i){idx[h.trim()]=i;idx[h.trim().toLowerCase()]=i;});
-
-  function findCol(kws,fb){
-    for(var k=0;k<kws.length;k++){for(var h=0;h<hdr.length;h++){if(hdr[h].trim().toLowerCase()===kws[k].toLowerCase())return h;}}
-    for(var k=0;k<kws.length;k++){for(var h=0;h<hdr.length;h++){if(hdr[h].trim().toLowerCase().indexOf(kws[k].toLowerCase())!==-1)return h;}}
-    return fb;
-  }
-
-  var DATE_COL=findCol(['date'],0);
-  var ACCT_COL=findCol(['account sub type'],3);
-  var DMS_COL=findCol(['dms'],4);
-  var PERS_COL=findCol(['person responsible'],5);
-  var ACCN_COL=findCol(['account name'],6);
-  var IMG_COL=findCol(['image count','image cnt','img count'],8);
-  var TYPE_COL=findCol(['type'],9);
-  var SEG_COL=findCol(['customer_segment','customer segment','segment'],11);
-
-  var daily={},personMap={},accountMap={},dmsMap={};
-  RAW_ROWS=[];
-
-  for(var i=1;i<lines.length;i++){
-    if(!lines[i].trim())continue;
-    var cols=splitCSV(lines[i]);
-    var dr=parseDate(cols[DATE_COL]||'');
-    if(!dr)continue;
-    var imgRaw=String(cols[IMG_COL]||'0').replace(/[^0-9.]/g,'');
-    var img=imgRaw?Math.round(parseFloat(imgRaw))||0:0;
-    var tp=(cols[TYPE_COL]||'').trim();
-    var at=(cols[ACCT_COL]||'').trim().toUpperCase();
-    var per=(cols[PERS_COL]||'').trim();
-    var acc=(cols[ACCN_COL]||'').trim();
-    var dms=(cols[DMS_COL]||'').trim();
-
-    var seg=(cols[SEG_COL]||'').trim()||'N/A';
-    if(!daily[dr])daily[dr]={date:dr,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
-    var d=daily[dr];
-    d.vins++;d.images+=img;
-    if(tp==='Live')d.live++;
-    else if(tp==='Console Download')d.console_dl++;
-    else if(tp==='Console Upload')d.console_ul++;
-    else if(tp==='DMS Download')d.dms_dl++;
-    else if(tp==='Pending')d.pending++;
-    else if(tp==='No Data Available')d.no_data++;
-    else if(tp==='Not Found')d.not_found++;
-    else if(tp==='Hold')d.hold++;
-    if(at==='FRANCHISE')d.franchise++;
-    else if(at==='INDEPENDENT')d.independent++;
-    else if(at==='RESELLER')d.reseller++;
-
-    if(per){if(!personMap[per])personMap[per]={name:per,vins:0,images:0,live:0,pending:0};
-      personMap[per].vins++;personMap[per].images+=img;
-      if(tp==='Live')personMap[per].live++;if(tp==='Pending')personMap[per].pending++;}
-
-    if(acc){if(!accountMap[acc])accountMap[acc]={name:acc,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0};
-      accountMap[acc].vins++;accountMap[acc].images+=img;
-      if(tp==='Live')accountMap[acc].live++;
-      else if(tp==='Console Download')accountMap[acc].console_dl++;
-      else if(tp==='Console Upload')accountMap[acc].console_ul++;
-      else if(tp==='DMS Download')accountMap[acc].dms_dl++;}
-
-    if(dms){if(!dmsMap[dms])dmsMap[dms]={vins:0,live:0,rooftops:{}};
-      dmsMap[dms].vins++;if(tp==='Live')dmsMap[dms].live++;if(acc)dmsMap[dms].rooftops[acc]=true;}
-
-    RAW_ROWS.push({date:dr,img:img,tp:tp,at:at,per:per,dms:dms,acc:acc,seg:seg});
-  }
-
-  DAILY=Object.values(daily).sort(function(a,b){return a.date.localeCompare(b.date);});
-  TOTAL_ROWS=DAILY.reduce(function(s,r){return s+r.vins;},0);
-
-  var mMap={};
-  var MON={
-    '2025-08':"Aug '25",'2025-09':"Sep '25",'2025-10':"Oct '25",'2025-11':"Nov '25",'2025-12':"Dec '25",
-    '2026-01':"Jan '26",'2026-02':"Feb '26",'2026-03':"Mar '26",'2026-04':"Apr '26",'2026-05':"May '26",'2026-06':"Jun '26"
-  };
-  DAILY.forEach(function(r){
-    var mk=r.date.slice(0,7);
-    if(!mMap[mk])mMap[mk]={mk:mk,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0};
-    mMap[mk].vins+=r.vins;mMap[mk].images+=r.images;mMap[mk].live+=r.live;
-    mMap[mk].console_dl+=r.console_dl;mMap[mk].console_ul+=r.console_ul;
-    mMap[mk].dms_dl+=r.dms_dl;mMap[mk].pending+=r.pending;mMap[mk].no_data+=r.no_data;
-  });
-  MONTHLY=Object.values(mMap).sort(function(a,b){return a.mk.localeCompare(b.mk);}).map(function(m){m.m=MON[m.mk]||m.mk;return m;});
-
-  PERSONS=Object.values(personMap).sort(function(a,b){return b.vins-a.vins;}).map(function(p){
-    p.pct=TOTAL_ROWS>0?((p.vins/TOTAL_ROWS)*100).toFixed(1):'0';return p;});
-
-  DMS_DATA=Object.entries(dmsMap).map(function(e){
-    return {name:e[0],vins:e[1].vins,live:e[1].live,rooftops:Object.keys(e[1].rooftops).length};
-  }).sort(function(a,b){return b.vins-a.vins;}).slice(0,12);
-
-  TOP_ACCOUNTS=Object.values(accountMap).filter(function(a){return a.live>0;})
-    .sort(function(a,b){return b.live-a.live;}).slice(0,15);
-
-  // ── Populate filter dropdowns dynamically from actual data ──
-  populateDropdown('fPerson', Object.keys(personMap).sort());
-  populateDropdown('fDMS', Object.keys(dmsMap).sort());
-}
-
-function populateDropdown(id, values){
-  var sel = document.getElementById(id);
-  if(!sel) return;
-  var current = sel.value; // preserve current selection
-  // Remove all options except first (All...)
-  while(sel.options.length > 1) sel.remove(1);
-  values.forEach(function(v){
-    if(!v) return;
-    var opt = document.createElement('option');
-    opt.value = v; opt.textContent = v;
-    sel.appendChild(opt);
-  });
-  // Restore previous selection if still valid
-  if(current) sel.value = current;
-}
-
-// Fetch
+// ── Status ──
 function setStatus(state,text){
   document.getElementById('statusBadge').className='status-badge badge-'+state;
   document.getElementById('statusDot').className='status-dot dot-'+state;
   document.getElementById('statusText').textContent=text;
 }
-function showLoader(msg){document.getElementById('loader').classList.remove('hide');document.getElementById('loaderSub').textContent=msg||'Loading...';}
-function hideLoader(){document.getElementById('loader').classList.add('hide');}
-function showError(msg){document.getElementById('errorBanner').classList.add('show');document.getElementById('errorText').textContent=msg;setStatus('error','Error');}
-function hideError(){document.getElementById('errorBanner').classList.remove('show');}
 
-function fetchAndRender(){
-  showLoader('Connecting to Google Sheets...');
-  hideError();
-  setStatus('loading','Loading...');
-  document.getElementById('btnRefresh').disabled=true;
-  document.getElementById('refreshIcon').classList.add('spinning');
-
-  // All possible URLs to try — direct export, gviz, published CSV
-  var SHEET_ID = '1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0';
-  var GID = '1350286518';
-  var BASE1 = 'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/export?format=csv&gid='+GID;
-  var BASE2 = 'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:csv&gid='+GID;
-  var BASE3 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
-
-  var PROXY1 = 'https://api.allorigins.win/raw?url=';
-  var PROXY2 = 'https://corsproxy.io/?';
-  var PROXY3 = 'https://api.codetabs.com/v1/proxy?quest=';
-
-  // Try all combinations: proxy × url
-  var attempts = [
-    PROXY1 + encodeURIComponent(BASE1),
-    PROXY2 + encodeURIComponent(BASE1),
-    PROXY1 + encodeURIComponent(BASE2),
-    PROXY2 + encodeURIComponent(BASE2),
-    PROXY3 + encodeURIComponent(BASE1),
-    PROXY1 + encodeURIComponent(BASE3),
-    PROXY2 + encodeURIComponent(BASE3),
-    PROXY3 + encodeURIComponent(BASE2),
-  ];
-
-  var idx = 0;
-
-  function onSuccess(text){
-    try{ processCSV(text); }
-    catch(e){ onFail('Parse error: '+e.message); return; }
-    hideLoader();
-    hideError();
-    setStatus('live','Live · '+TOTAL_ROWS.toLocaleString()+' VINs');
-    document.getElementById('dsBar').style.display='flex';
-    document.getElementById('dsUpdated').textContent='Updated: '+new Date().toLocaleTimeString('en-IN',{hour12:false});
-    document.getElementById('btnRefresh').disabled=false;
-    document.getElementById('refreshIcon').classList.remove('spinning');
-    renderAll();
-  }
-
-  function onFail(reason){
-    if(idx >= attempts.length){
-      hideLoader();
-      showError('Could not fetch data after '+attempts.length+' attempts. Last error: '+reason
-        +'<br><br><b>Fix:</b> Open Google Sheet → File → Share → Publish to web → Select tab "Data VIN Level-1" → Format "CSV" → Publish');
-      document.getElementById('btnRefresh').disabled=false;
-      document.getElementById('refreshIcon').classList.remove('spinning');
-      return;
-    }
-
-    var url = attempts[idx++];
-    document.getElementById('loaderSub').textContent = 'Attempt '+idx+' of '+attempts.length+'...';
-
-    var ctrl = typeof AbortController!=='undefined' ? new AbortController() : null;
-    var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 10000) : null;
-
-    fetch(url, ctrl ? {cache:'no-cache',signal:ctrl.signal} : {cache:'no-cache'})
-      .then(function(r){
-        if(timer) clearTimeout(timer);
-        if(!r.ok) throw new Error('HTTP '+r.status);
-        return r.text();
-      })
-      .then(function(text){
-        // Must be real CSV — has commas and more than 200 chars
-        if(!text || text.length < 200 || text.split('\n')[0].indexOf(',') === -1){
-          throw new Error('Not valid CSV (len='+text.length+')');
-        }
-        onSuccess(text);
-      })
-      .catch(function(e){
-        if(timer) clearTimeout(timer);
-        onFail(e.message||'unknown');
-      });
-  }
-
-  onFail('init');
-}
-
-
-
-// Filters
+// ── Filters ──
 function getFiltered(){
   var p=document.getElementById('fPeriod').value;
   var pr=document.getElementById('fPerson').value;
@@ -575,6 +376,7 @@ function getFiltered(){
   var from=document.getElementById('fFrom').value;
   var to=document.getElementById('fTo').value;
 
+  // Date cutoff
   var cutFrom='',cutTo='';
   if(p==='custom'){cutFrom=from;cutTo=to;}
   else if(p!=='all'){
@@ -583,51 +385,73 @@ function getFiltered(){
     if(last){var cut=new Date(last);cut.setDate(cut.getDate()-days);cutFrom=cut.toISOString().slice(0,10);}
   }
 
-  var tyMap={live:'Live',console_dl:'Console Download',console_ul:'Console Upload',dms_dl:'DMS Download',pending:'Pending',no_data:'No Data Available'};
-  var acMap={franchise:'FRANCHISE',independent:'INDEPENDENT',reseller:'RESELLER'};
+  // Choose data source based on filters
+  var src = DAILY;
+  if(pr && PERSON_DAILY[pr]){
+    src = PERSON_DAILY[pr];
+  } else if(dm && DMS_DAILY[dm]){
+    src = DMS_DAILY[dm];
+  }
 
-  var rows=RAW_ROWS.filter(function(row){
-    if(cutFrom&&row.date<cutFrom)return false;
-    if(cutTo&&row.date>cutTo)return false;
-    if(pr&&row.per!==pr)return false;
-    if(ty&&row.tp!==tyMap[ty])return false;
-    if(ac&&row.at!==acMap[ac])return false;
-    if(dm&&row.dms!==dm)return false;
+  // Apply date filter
+  var d = src.filter(function(r){
+    if(cutFrom && r.date<cutFrom) return false;
+    if(cutTo   && r.date>cutTo)   return false;
     return true;
   });
 
-  var daily={};
-  rows.forEach(function(row){
-    if(!daily[row.date])daily[row.date]={date:row.date,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
-    var d=daily[row.date];
-    d.vins++;d.images+=row.img;
-    if(row.tp==='Live')d.live++;
-    else if(row.tp==='Console Download')d.console_dl++;
-    else if(row.tp==='Console Upload')d.console_ul++;
-    else if(row.tp==='DMS Download')d.dms_dl++;
-    else if(row.tp==='Pending')d.pending++;
-    else if(row.tp==='No Data Available')d.no_data++;
-    if(row.at==='FRANCHISE')d.franchise++;
-    else if(row.at==='INDEPENDENT')d.independent++;
-    else if(row.at==='RESELLER')d.reseller++;
-  });
+  // Apply type filter — zero out other types
+  var tyMap={live:'live',console_dl:'console_dl',console_ul:'console_ul',dms_dl:'dms_dl',pending:'pending',no_data:'no_data'};
+  if(ty && tyMap[ty]){
+    var tk=tyMap[ty];
+    d=d.map(function(r){
+      var copy=Object.assign({},r);
+      copy.vins=r[tk]||0;
+      copy.images=r.vins>0?Math.round(r.images*(r[tk]||0)/r.vins):0;
+      ['live','console_dl','console_ul','dms_dl','pending','no_data'].forEach(function(k){
+        copy[k]=k===tk?r[k]:0;
+      });
+      return copy;
+    }).filter(function(r){return r.vins>0;});
+  }
 
-  var result=Object.values(daily).sort(function(a,b){return a.date.localeCompare(b.date);});
+  // Apply account type filter
+  var acMap={franchise:'franchise',independent:'independent',reseller:'reseller'};
+  if(ac && acMap[ac]){
+    var ak=acMap[ac];
+    d=d.map(function(r){
+      var copy=Object.assign({},r);
+      copy.vins=r[ak]||0;
+      copy.images=r.vins>0?Math.round(r.images*(r[ak]||0)/r.vins):0;
+      return copy;
+    }).filter(function(r){return r.vins>0;});
+  }
+
+  // Compute image totals per type from filtered data
   var fi={live:0,cdl:0,cul:0,dms:0};
-  rows.forEach(function(row){
-    if(row.tp==='Live')fi.live+=row.img;
-    else if(row.tp==='Console Download')fi.cdl+=row.img;
-    else if(row.tp==='Console Upload')fi.cul+=row.img;
-    else if(row.tp==='DMS Download')fi.dms+=row.img;
-  });
-  result._fi=fi;
+  if(pr && PERSON_TYPE_IMGS[pr]){
+    var pti=PERSON_TYPE_IMGS[pr];
+    fi={live:pti.live||0,cdl:pti.console_dl||0,cul:pti.console_ul||0,dms:pti.dms_dl||0};
+  } else {
+    fi={live:TYPE_IMAGES.live||0,cdl:TYPE_IMAGES.console_dl||0,cul:TYPE_IMAGES.console_ul||0,dms:TYPE_IMAGES.dms_dl||0};
+  }
+  if(ty){
+    var keep={live:fi.live,console_dl:fi.cdl,console_ul:fi.cul,dms_dl:fi.dms};
+    fi={live:ty==='live'?keep.live:0,cdl:ty==='console_dl'?keep.console_dl:0,cul:ty==='console_ul'?keep.console_ul:0,dms:ty==='dms_dl'?keep.dms_dl:0};
+  }
+  d._fi=fi;
 
+  // Chips
+  var tyLabels={live:'Live',console_dl:'Console Download',console_ul:'Console Upload',dms_dl:'DMS Download',pending:'Pending',no_data:'No Data'};
   var chips=[];
-  if(p!=='all'&&p!=='custom')chips.push(p+' days');
-  if(p==='custom'&&(from||to))chips.push((from||'start')+' to '+(to||'end'));
-  if(pr)chips.push(pr);if(ty)chips.push(tyMap[ty]||ty);if(ac)chips.push(ac);if(dm)chips.push(dm);
-  document.getElementById('activeChips').innerHTML=chips.map(function(c){return '<div class="chip">'+c+'</div>';}).join('');
-  return result;
+  if(p!=='all'&&p!=='custom') chips.push(p+' days');
+  if(p==='custom'&&(from||to)) chips.push((from||'start')+' to '+(to||'end'));
+  if(pr) chips.push(pr);
+  if(ty) chips.push(tyLabels[ty]||ty);
+  if(ac) chips.push(ac.charAt(0).toUpperCase()+ac.slice(1));
+  if(dm) chips.push(dm);
+  document.getElementById('activeChips').innerHTML=chips.map(function(ch){return '<div class="chip">'+ch+'</div>';}).join('');
+  return d;
 }
 
 function onPeriodChange(){
@@ -637,12 +461,15 @@ function onPeriodChange(){
   renderAll();
 }
 function resetFilters(){
-  ['fPeriod','fPerson','fType','fAccount','fDMS'].forEach(function(id){document.getElementById(id).value=id==='fPeriod'?'30':'';});
-  document.getElementById('fFrom').style.display='none';document.getElementById('fTo').style.display='none';
+  ['fPeriod','fPerson','fType','fAccount','fDMS'].forEach(function(id){
+    document.getElementById(id).value=id==='fPeriod'?'30':'';
+  });
+  document.getElementById('fFrom').style.display='none';
+  document.getElementById('fTo').style.display='none';
   renderAll();
 }
 
-// Scorecards
+// ── Scorecards ──
 function renderScores(d){
   var fi=d._fi||{live:0,cdl:0,cul:0,dms:0};
   var tot=d.reduce(function(s,r){return s+r.vins;},0);
@@ -652,471 +479,328 @@ function renderScores(d){
   var dms=d.reduce(function(s,r){return s+r.dms_dl;},0);
   function set(id,v,m){var ve=document.getElementById(id),me=document.getElementById(id+'m');if(ve)ve.textContent=v;if(me)me.textContent=m;}
   function setImg(id,v){var el=document.getElementById(id);if(el)el.textContent=v>0?'('+fmt(v)+' imgs)':'(0 imgs)';}
-  set('s4',fmtF(dms),pct(dms,tot)+' of total');         setImg('s4i',fi.dms);
-  set('s3',fmtF(cul),pct(cul,tot)+' of total');          setImg('s3i',fi.cul);
-  set('s2',fmtF(cdl),pct(cdl,tot)+' of total');          setImg('s2i',fi.cdl);
+  set('s4',fmtF(dms), pct(dms,tot)+' of total');              setImg('s4i',fi.dms);
+  set('s3',fmtF(cul), pct(cul,tot)+' of total');              setImg('s3i',fi.cul);
+  set('s2',fmtF(cdl), pct(cdl,tot)+' of total');              setImg('s2i',fi.cdl);
   set('s1',fmtF(live),pct(live,tot)+' of total · '+d.length+' days'); setImg('s1i',fi.live);
 }
 
-// Bar chart
+// ── Bar chart ──
 function renderBar(d){
-  d = d || getFiltered();
+  d=d||getFiltered();
   var range=document.getElementById('barRange').value;
-  var data = range==='all' ? d : d.slice(-parseInt(range));
+  var data=range==='all'?d:d.slice(-parseInt(range));
   document.getElementById('barSub').textContent=data.length+' days';
   var wrap=document.getElementById('barChart');wrap.innerHTML='';
-  if(!data.length){wrap.innerHTML='<div style="color:#9aa0a6;font-size:12px;padding:40px 0;text-align:center">No data for selected filters</div>';return;}
+  if(!data.length){wrap.innerHTML='<div style="color:#9aa0a6;text-align:center;padding:40px">No data</div>';return;}
   var maxV=Math.max.apply(null,data.map(function(r){return r.vins;}));
   data.forEach(function(row){
     var col=document.createElement('div');col.className='bar-col';
     var h=Math.max(3,(row.vins/maxV)*148);
-    var segs=[{v:row.live,c:'#34a853'},{v:row.console_dl,c:'#4285f4'},{v:row.console_ul,c:'#9334e6'},{v:row.dms_dl,c:'#f29900'},{v:row.pending,c:'#d93025'},{v:row.no_data+row.not_found+row.hold,c:'#dadce0'}];
-    var stack=document.createElement('div');stack.className='bar-stack';stack.style.height=h+'px';
+    var segs=[{v:row.live,c:'#34a853'},{v:row.console_dl,c:'#4285f4'},{v:row.console_ul,c:'#9334e6'},{v:row.dms_dl,c:'#f29900'},{v:row.pending,c:'#d93025'},{v:(row.no_data||0)+(row.not_found||0)+(row.hold||0),c:'#dadce0'}];
+    var stack=document.createElement('div');stack.className='bar-stack';stack.style.height=h+'px';stack.style.cursor='pointer';
     segs.forEach(function(s){if(!s.v)return;var sg=document.createElement('div');sg.className='bar-seg';sg.style.height=((s.v/row.vins)*100)+'%';sg.style.background=s.c;stack.appendChild(sg);});
     var tipHtml='<b>'+row.date+'</b><br>VINs: <b>'+row.vins+'</b><br>Images: '+fmtF(row.images)+'<br>Live: '+row.live+'<br>CDL: '+row.console_dl+'<br>CUL: '+row.console_ul+'<br>DMS: '+row.dms_dl+'<br>Pending: '+row.pending;
-    (function(row){
-      stack.addEventListener('mouseenter',function(e){showTip(e,tipHtml);});
-      stack.addEventListener('mouseleave',hideTip);
-      stack.style.cursor='pointer';
-      stack.addEventListener('click',function(){
-        showBarModal(row.date,row.vins,row.images,row.live,row.console_dl,row.console_ul,row.dms_dl,row.pending,(row.no_data||0)+(row.not_found||0)+(row.hold||0));
-      });
-    })(row);
+    stack.addEventListener('mouseenter',function(e){showTip(e,tipHtml);});
+    stack.addEventListener('mouseleave',hideTip);
+    (function(row){stack.addEventListener('click',function(){showBarModal(row.date,row.vins,row.images,row.live,row.console_dl,row.console_ul,row.dms_dl,row.pending,(row.no_data||0)+(row.not_found||0)+(row.hold||0));});})(row);
     var lbl=document.createElement('div');lbl.className='bar-lbl';lbl.textContent=row.date.slice(5);
     col.appendChild(stack);col.appendChild(lbl);wrap.appendChild(col);
   });
 }
 
-// Donut
+// ── Donut ──
 function renderDonut(d){
-  d = d || getFiltered();
-
-  // Build customer_segment totals from filtered RAW_ROWS
-  var p5=document.getElementById('fPeriod').value;
-  var pr5=document.getElementById('fPerson').value;
-  var ty5=document.getElementById('fType').value;
-  var ac5=document.getElementById('fAccount').value;
-  var dm5=document.getElementById('fDMS').value;
-  var from5=document.getElementById('fFrom').value;
-  var to5=document.getElementById('fTo').value;
-  var cutFrom5='',cutTo5='';
-  if(p5==='custom'){cutFrom5=from5;cutTo5=to5;}
-  else if(p5!=='all'){
-    var days5=parseInt(p5);
-    var last5=DAILY.length?DAILY[DAILY.length-1].date:'';
-    if(last5){var cut5=new Date(last5);cut5.setDate(cut5.getDate()-days5);cutFrom5=cut5.toISOString().slice(0,10);}
-  }
-  var tyMap5={live:'Live',console_dl:'Console Download',console_ul:'Console Upload',dms_dl:'DMS Download',pending:'Pending',no_data:'No Data Available'};
-  var acMap5={franchise:'FRANCHISE',independent:'INDEPENDENT',reseller:'RESELLER'};
-
-  var segMap={};
-  RAW_ROWS.forEach(function(row){
-    if(cutFrom5&&row.date<cutFrom5)return;
-    if(cutTo5&&row.date>cutTo5)return;
-    if(pr5&&row.per!==pr5)return;
-    if(ty5&&row.tp!==tyMap5[ty5])return;
-    if(ac5&&row.at!==acMap5[ac5])return;
-    if(dm5&&row.dms!==dm5)return;
-    var s=row.seg||'N/A';
-    segMap[s]=(segMap[s]||0)+1;
-  });
-
-  var total=Object.values(segMap).reduce(function(s,v){return s+v;},0);
-
-  // Color palette for segments
-  var palette=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#ff6d00','#00897b','#8d6e63'];
-  var entries=Object.entries(segMap).sort(function(a,b){return b[1]-a[1];});
-
-  // Draw donut
+  d=d||getFiltered();
+  var totFr=d.reduce(function(s,r){return s+(r.franchise||0);},0);
+  var totIn=d.reduce(function(s,r){return s+(r.independent||0);},0);
+  var totRe=d.reduce(function(s,r){return s+(r.reseller||0);},0);
+  var total=d.reduce(function(s,r){return s+r.vins;},0);
+  var slices=[{l:'Franchise',v:totFr,c:'#4285f4'},{l:'Independent',v:totIn,c:'#34a853'},{l:'Reseller',v:totRe,c:'#fbbc04'},{l:'N/A',v:Math.max(0,total-totFr-totIn-totRe),c:'#dadce0'}];
   var cv=document.getElementById('donutCv'),ctx=cv.getContext('2d');
   ctx.clearRect(0,0,120,120);
-  if(total===0){
-    ctx.beginPath();ctx.arc(60,60,50,0,Math.PI*2);ctx.fillStyle='#f1f3f4';ctx.fill();
-    ctx.beginPath();ctx.arc(60,60,30,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-    ctx.fillStyle='#9aa0a6';ctx.font='10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('No data',60,60);
-    document.getElementById('donutLeg').innerHTML='';
-    return;
-  }
   var angle=-Math.PI/2;
-  entries.forEach(function(e,i){
-    var sw=(e[1]/total)*Math.PI*2;
-    ctx.beginPath();ctx.moveTo(60,60);ctx.arc(60,60,50,angle,angle+sw);ctx.closePath();
-    ctx.fillStyle=palette[i%palette.length];ctx.fill();angle+=sw;
-  });
+  slices.forEach(function(s){if(!s.v)return;var sw=(s.v/total)*Math.PI*2;ctx.beginPath();ctx.moveTo(60,60);ctx.arc(60,60,50,angle,angle+sw);ctx.closePath();ctx.fillStyle=s.c;ctx.fill();angle+=sw;});
   ctx.beginPath();ctx.arc(60,60,30,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-  ctx.fillStyle='#202124';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(fmt(total),60,56);
+  ctx.fillStyle='#202124';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(total>0?fmt(total):'0',60,56);
   ctx.fillStyle='#5f6368';ctx.font='9px Arial';ctx.fillText('VINs',60,70);
-
-  // Legend
-  document.getElementById('donutLeg').innerHTML=entries.map(function(e,i){
-    return '<div class="leg-row">'
-      +'<div class="leg-dot" style="background:'+palette[i%palette.length]+'"></div>'
-      +'<span class="leg-name">'+e[0]+'</span>'
-      +'<span class="leg-pct">'+pct(e[1],total)+'</span>'
-      +'<span class="leg-count">'+fmtF(e[1])+'</span>'
-      +'</div>';
+  document.getElementById('donutLeg').innerHTML=slices.filter(function(s){return s.v>0;}).map(function(s){
+    return '<div class="leg-row"><div class="leg-dot" style="background:'+s.c+'"></div><span class="leg-name">'+s.l+'</span><span class="leg-pct">'+pct(s.v,total)+'</span><span class="leg-count">'+fmtF(s.v)+'</span></div>';
   }).join('');
-
-  // Update panel subtitle
-  var subEl=document.querySelector('.panel-sub[data-donut]');
-  if(subEl)subEl.textContent='By customer segment';
 }
 
-// Line chart
+// ── Line chart ──
 function renderLine(){
   if(!MONTHLY.length)return;
   var svg=document.getElementById('lineChart');
-  var W=svg.clientWidth||700, H=220;
+  var W=svg.clientWidth||700,H=220,pad={t:20,r:20,b:32,l:56};
+  var cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
   svg.setAttribute('viewBox','0 0 '+W+' '+H);
-  var pad={t:20,r:20,b:32,l:56};
-  var cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
-  var series=[
-    {key:'vins',c:'#4285f4',label:'Total VINs'},
-    {key:'live',c:'#34a853',label:'Live'},
-    {key:'console_dl',c:'#1a73e8',label:'Console DL'},
-    {key:'console_ul',c:'#9334e6',label:'Console UL'},
-    {key:'dms_dl',c:'#f29900',label:'DMS DL'}
-  ];
+  var series=[{key:'vins',c:'#4285f4',label:'Total VINs'},{key:'live',c:'#34a853',label:'Live'},{key:'console_dl',c:'#1a73e8',label:'Console DL'},{key:'console_ul',c:'#9334e6',label:'Console UL'},{key:'dms_dl',c:'#f29900',label:'DMS DL'}];
   var maxV=Math.max.apply(null,MONTHLY.map(function(m){return m.vins;}));
   var n=MONTHLY.length;
   function x(i){return pad.l+(n>1?i/(n-1):0.5)*cW;}
   function y(v){return pad.t+(1-v/maxV)*cH;}
-
-  // Build SVG
   var html='';
-  // Grid lines
-  for(var g=0;g<=4;g++){
-    var yg=pad.t+(g/4)*cH;
-    var val=Math.round(maxV*(1-g/4));
-    html+='<line x1="'+pad.l+'" y1="'+yg+'" x2="'+(pad.l+cW)+'" y2="'+yg+'" stroke="#e8eaed" stroke-width="1"/>';
-    html+='<text x="'+(pad.l-6)+'" y="'+(yg+4)+'" text-anchor="end" font-size="9" fill="#9aa0a6">'+fmt(val)+'</text>';
-  }
-  // X labels
-  MONTHLY.forEach(function(m,i){
-    html+='<text x="'+x(i)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="#9aa0a6">'+m.m+'</text>';
-  });
-  // Series lines
-  series.forEach(function(s){
-    var pts=MONTHLY.map(function(m,i){return x(i)+','+y(m[s.key]);}).join(' ');
-    html+='<polyline points="'+pts+'" fill="none" stroke="'+s.c+'" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>';
-  });
-  // Data labels + clickable dots (on top of lines)
+  for(var g=0;g<=4;g++){var yg=pad.t+(g/4)*cH;html+='<line x1="'+pad.l+'" y1="'+yg+'" x2="'+(pad.l+cW)+'" y2="'+yg+'" stroke="#e8eaed" stroke-width="1"/><text x="'+(pad.l-6)+'" y="'+(yg+4)+'" text-anchor="end" font-size="9" fill="#9aa0a6">'+fmt(Math.round(maxV*(1-g/4)))+'</text>';}
+  MONTHLY.forEach(function(m,i){html+='<text x="'+x(i)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="#9aa0a6">'+m.m+'</text>';});
+  series.forEach(function(s){html+='<polyline points="'+MONTHLY.map(function(m,i){return x(i)+','+y(m[s.key]);}).join(' ')+'" fill="none" stroke="'+s.c+'" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>';});
+  // Dots + labels for Total VINs
   series.forEach(function(s,si){
     MONTHLY.forEach(function(m,i){
-      var cx=x(i), cy=y(m[s.key]), val=m[s.key];
-      // Show label only for Total VINs (si===0) or on hover via JS
-      var showLabel = si===0;
-      if(showLabel){
-        html+='<text x="'+cx+'" y="'+(cy-8)+'" text-anchor="middle" font-size="8" fill="'+s.c+'" font-weight="600">'+fmt(val)+'</text>';
-      }
-      // Clickable circle
-      var tipData='month='+encodeURIComponent(m.m)+'&key='+s.key+'&val='+val+'&color='+encodeURIComponent(s.c)+'&label='+encodeURIComponent(s.label)
-        +'&vins='+m.vins+'&live='+m.live+'&cdl='+m.console_dl+'&cul='+m.console_ul+'&dms='+m.dms_dl;
-      html+='<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="'+s.c+'" stroke="#fff" stroke-width="2" '
-        +'style="cursor:pointer" '
-        +'onmouseenter="showLinePopup(event,''+m.m+'','+m.vins+','+m.live+','+m.console_dl+','+m.console_ul+','+m.dms_dl+',''+s.c+'',''+s.label+'','+val+')" '
-        +'onmouseleave="hideTip()" '
-        +'onclick="showLineModal(''+m.m+'','+m.vins+','+m.live+','+m.console_dl+','+m.console_ul+','+m.dms_dl+')" '
-        +'/>';
+      var cx=x(i),cy=y(m[s.key]),val=m[s.key];
+      if(si===0) html+='<text x="'+cx+'" y="'+(cy-8)+'" text-anchor="middle" font-size="8" fill="'+s.c+'" font-weight="600">'+fmt(val)+'</text>';
+      html+='<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="'+s.c+'" stroke="#fff" stroke-width="2" style="cursor:pointer" onclick="showLineModal(''+m.m+'','+m.vins+','+m.live+','+m.console_dl+','+m.console_ul+','+m.dms_dl+')" onmouseenter="showTip(event,'<b>'+m.m+'</b><br>'+s.label+': <b>'+fmtF(val)+'</b><br>Total: '+fmtF(m.vins)+'')" onmouseleave="hideTip()"/>';
     });
   });
   svg.innerHTML=html;
-
-  // Legend
-  document.getElementById('lineLeg').innerHTML=series.map(function(s){
-    return '<div class="cl-item"><div class="cl-dot" style="background:'+s.c+'"></div>'+s.label+'</div>';
-  }).join('');
-  if(MONTHLY.length){
-    document.getElementById('monthRange').textContent=MONTHLY[0].m+' - '+MONTHLY[MONTHLY.length-1].m;
-  }
+  document.getElementById('lineLeg').innerHTML=series.map(function(s){return '<div class="cl-item"><div class="cl-dot" style="background:'+s.c+'"></div>'+s.label+'</div>';}).join('');
+  if(MONTHLY.length) document.getElementById('monthRange').textContent=MONTHLY[0].m+' - '+MONTHLY[MONTHLY.length-1].m;
 }
 
-function showLinePopup(e,month,vins,live,cdl,cul,dms,color,label,val){
-  var html='<b style="color:'+color+'">'+label+'</b> &mdash; <b>'+month+'</b><br>'
-    +'Value: <b>'+fmtF(val)+'</b><br>'
-    +'<hr style="border:none;border-top:1px solid rgba(255,255,255,.2);margin:5px 0">'
-    +'Total VINs: '+fmtF(vins)+'<br>'
-    +'&#x1F7E2; Live: '+fmtF(live)+'<br>'
-    +'&#x1F535; Console DL: '+fmtF(cdl)+'<br>'
-    +'&#x1F7E3; Console UL: '+fmtF(cul)+'<br>'
-    +'&#x1F7E1; DMS DL: '+fmtF(dms)+'<br>'
-    +'<span style="font-size:9px;opacity:.7;margin-top:4px;display:block">Click dot for full details</span>';
-  showTip(e,html);
-}
-
-function showBarModal(date,vins,images,live,cdl,cul,dms,pending,nodata){
-  var other=Math.max(0,vins-live-cdl-cul-dms-pending-nodata);
-  var modal=document.getElementById('barModal');
-  if(!modal){
-    modal=document.createElement('div');modal.id='barModal';
-    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center';
-    modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display="none";});
-    document.body.appendChild(modal);
-  }
-  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:320px;max-width:460px;box-shadow:0 8px 40px rgba(0,0,0,.25)">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">'
-    +'<div style="font-size:16px;font-weight:700;color:#202124">'+date+'</div>'
-    +'<button onclick="document.getElementById('barModal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:#5f6368">&times;</button>'
-    +'</div>'
-    +'<table style="width:100%;border-collapse:collapse;font-size:13px">'
-    +'<tr style="background:#f8f9fa"><td style="padding:9px 12px;font-weight:600">Total VINs</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#4285f4">'+fmtF(vins)+'</td></tr>'
-    +'<tr><td style="padding:9px 12px;font-weight:600">Total Images</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#129eaf">'+fmtF(images)+'</td></tr>'
-    +'<tr style="background:#f8f9fa"><td style="padding:9px 12px;color:#1e8e3e;font-weight:600">&#x2713; Live</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#1e8e3e">'+fmtF(live)+' <span style="font-size:10px;color:#9aa0a6">('+pct(live,vins)+')</span></td></tr>'
-    +'<tr><td style="padding:9px 12px;color:#1a73e8;font-weight:600">&#x21E9; Console DL</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#1a73e8">'+fmtF(cdl)+' <span style="font-size:10px;color:#9aa0a6">('+pct(cdl,vins)+')</span></td></tr>'
-    +'<tr style="background:#f8f9fa"><td style="padding:9px 12px;color:#9334e6;font-weight:600">&#x21E7; Console UL</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#9334e6">'+fmtF(cul)+' <span style="font-size:10px;color:#9aa0a6">('+pct(cul,vins)+')</span></td></tr>'
-    +'<tr><td style="padding:9px 12px;color:#f29900;font-weight:600">&#x21E9; DMS DL</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#f29900">'+fmtF(dms)+' <span style="font-size:10px;color:#9aa0a6">('+pct(dms,vins)+')</span></td></tr>'
-    +'<tr style="background:#f8f9fa"><td style="padding:9px 12px;color:#d93025;font-weight:600">Pending</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#d93025">'+fmtF(pending)+'</td></tr>'
-    +'<tr><td style="padding:9px 12px;color:#80868b;font-weight:600">Other</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#80868b">'+fmtF(other)+'</td></tr>'
-    +'</table>'
-    +'<div style="margin-top:16px;text-align:right"><button onclick="document.getElementById('barModal').style.display='none'" style="background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:7px 20px;font-size:12px;font-weight:700;cursor:pointer">Close</button></div>'
-    +'</div>';
-  modal.style.display='flex';
-}
-
-function showLineModal(month,vins,live,cdl,cul,dms){
-  var other=vins-live-cdl-cul-dms;
-  var modal=document.getElementById('lineModal');
-  if(!modal){
-    modal=document.createElement('div');
-    modal.id='lineModal';
-    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center';
-    modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display="none";});
-    document.body.appendChild(modal);
-  }
-  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:320px;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,.25)">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">'
-    +'<div style="font-size:16px;font-weight:700;color:#202124">'+month+' &mdash; Full Breakdown</div>'
-    +'<button onclick="document.getElementById('lineModal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer;color:#5f6368">&times;</button>'
-    +'</div>'
-    +'<table style="width:100%;border-collapse:collapse;font-size:13px">'
-    +'<tr style="background:#f8f9fa"><td style="padding:10px 12px;font-weight:600">Total VINs</td><td style="padding:10px 12px;text-align:right;font-weight:700;color:#4285f4">'+fmtF(vins)+'</td></tr>'
-    +'<tr><td style="padding:10px 12px;color:#1e8e3e;font-weight:600">&#x2713; Live</td><td style="padding:10px 12px;text-align:right;font-weight:700;color:#1e8e3e">'+fmtF(live)+'<span style="font-size:10px;color:#9aa0a6;margin-left:6px">('+pct(live,vins)+')</span></td></tr>'
-    +'<tr style="background:#f8f9fa"><td style="padding:10px 12px;color:#1a73e8;font-weight:600">&#x21E9; Console DL</td><td style="padding:10px 12px;text-align:right;font-weight:700;color:#1a73e8">'+fmtF(cdl)+'<span style="font-size:10px;color:#9aa0a6;margin-left:6px">('+pct(cdl,vins)+')</span></td></tr>'
-    +'<tr><td style="padding:10px 12px;color:#9334e6;font-weight:600">&#x21E7; Console UL</td><td style="padding:10px 12px;text-align:right;font-weight:700;color:#9334e6">'+fmtF(cul)+'<span style="font-size:10px;color:#9aa0a6;margin-left:6px">('+pct(cul,vins)+')</span></td></tr>'
-    +'<tr style="background:#f8f9fa"><td style="padding:10px 12px;color:#f29900;font-weight:600">&#x21E9; DMS DL</td><td style="padding:10px 12px;text-align:right;font-weight:700;color:#f29900">'+fmtF(dms)+'<span style="font-size:10px;color:#9aa0a6;margin-left:6px">('+pct(dms,vins)+')</span></td></tr>'
-    +'<tr><td style="padding:10px 12px;color:#80868b;font-weight:600">Other</td><td style="padding:10px 12px;text-align:right;font-weight:700;color:#80868b">'+fmtF(Math.max(0,other))+'<span style="font-size:10px;color:#9aa0a6;margin-left:6px">('+pct(Math.max(0,other),vins)+')</span></td></tr>'
-    +'</table>'
-    +'<div style="margin-top:16px;text-align:right"><button onclick="document.getElementById('lineModal').style.display='none'" style="background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:7px 20px;font-size:12px;font-weight:700;cursor:pointer">Close</button></div>'
-    +'</div>';
-  modal.style.display='flex';
-}
-
-// Type bars
+// ── Type bars ──
 function renderTypes(d){
   var types=[
     {n:'Live',v:d.reduce(function(s,r){return s+r.live;},0),c:'#34a853'},
     {n:'Console DL',v:d.reduce(function(s,r){return s+r.console_dl;},0),c:'#4285f4'},
     {n:'Console UL',v:d.reduce(function(s,r){return s+r.console_ul;},0),c:'#9334e6'},
     {n:'DMS Download',v:d.reduce(function(s,r){return s+r.dms_dl;},0),c:'#f29900'},
-    {n:'No Data',v:d.reduce(function(s,r){return s+r.no_data;},0),c:'#80868b'},
-    {n:'Pending',v:d.reduce(function(s,r){return s+r.pending;},0),c:'#d93025'}
+    {n:'No Data',v:d.reduce(function(s,r){return s+(r.no_data||0);},0),c:'#80868b'},
+    {n:'Pending',v:d.reduce(function(s,r){return s+(r.pending||0);},0),c:'#d93025'}
   ].filter(function(t){return t.v>0;});
+  if(!types.length){document.getElementById('typeBars').innerHTML='<div style="color:#9aa0a6;text-align:center;padding:20px">No data</div>';return;}
   var maxV=Math.max.apply(null,types.map(function(t){return t.v;}));
   document.getElementById('typeBars').innerHTML=types.map(function(t){
     return '<div class="hbar-row"><div class="hbar-name">'+t.n+'</div><div class="hbar-bg"><div class="hbar-fill" style="width:'+((t.v/maxV)*100).toFixed(1)+'%;background:'+t.c+'"></div></div><div class="hbar-val">'+fmt(t.v)+'</div></div>';
   }).join('');
 }
 
-// DMS bars — uses DOM creation to avoid quote issues
+// ── DMS bars ──
 function renderDMS(d){
-  // Build DMS stats from filtered RAW_ROWS
-  var p4=document.getElementById('fPeriod').value;
-  var pr4=document.getElementById('fPerson').value;
-  var ty4=document.getElementById('fType').value;
-  var ac4=document.getElementById('fAccount').value;
-  var dm4=document.getElementById('fDMS').value;
-  var from4=document.getElementById('fFrom').value;
-  var to4=document.getElementById('fTo').value;
-  var cutFrom4='',cutTo4='';
-  if(p4==='custom'){cutFrom4=from4;cutTo4=to4;}
-  else if(p4!=='all'){
-    var days4=parseInt(p4);
-    var last4=DAILY.length?DAILY[DAILY.length-1].date:'';
-    if(last4){var cut4=new Date(last4);cut4.setDate(cut4.getDate()-days4);cutFrom4=cut4.toISOString().slice(0,10);}
+  var dmsData=DMS_DATA;
+  var dm=document.getElementById('fDMS').value;
+  if(dm && DMS_DAILY[dm]){
+    var src=DMS_DAILY[dm];
+    var live=src.reduce(function(s,r){return s+r.live;},0);
+    var vins=src.reduce(function(s,r){return s+r.vins;},0);
+    var rooftops=new Set();
+    src.forEach(function(r){if(r.rooftops)rooftops.add(r.rooftops);});
+    dmsData=[{name:dm,vins:vins,live:live,rooftops:DMS_DATA.find(function(x){return x.name===dm;})?DMS_DATA.find(function(x){return x.name===dm;}).rooftops:0}];
   }
-  var tyMap4={live:'Live',console_dl:'Console Download',console_ul:'Console Upload',dms_dl:'DMS Download',pending:'Pending',no_data:'No Data Available'};
-  var acMap4={franchise:'FRANCHISE',independent:'INDEPENDENT',reseller:'RESELLER'};
-  var dmsMap4={};
-  RAW_ROWS.forEach(function(row){
-    if(cutFrom4&&row.date<cutFrom4)return;
-    if(cutTo4&&row.date>cutTo4)return;
-    if(pr4&&row.per!==pr4)return;
-    if(ty4&&row.tp!==tyMap4[ty4])return;
-    if(ac4&&row.at!==acMap4[ac4])return;
-    if(dm4&&row.dms!==dm4)return;
-    if(!row.dms)return;
-    if(!dmsMap4[row.dms])dmsMap4[row.dms]={vins:0,live:0,rooftops:{}};
-    dmsMap4[row.dms].vins++;
-    if(row.tp==='Live')dmsMap4[row.dms].live++;
-    if(row.acc)dmsMap4[row.dms].rooftops[row.acc]=true;
-  });
-  var dmsData4=Object.entries(dmsMap4).map(function(e){
-    return {name:e[0],vins:e[1].vins,live:e[1].live,rooftops:Object.keys(e[1].rooftops).length};
-  }).sort(function(a,b){return b.vins-a.vins;}).slice(0,12);
-
   var container=document.getElementById('dmsBars');container.innerHTML='';
-  if(!dmsData4.length){container.innerHTML='<div style="color:#9aa0a6;font-size:12px;padding:20px 0;text-align:center">No data for selected filters</div>';return;}
-  var maxLive=Math.max.apply(null,dmsData4.map(function(d){return d.live;}));
+  if(!dmsData.length){container.innerHTML='<div style="color:#9aa0a6;text-align:center;padding:20px">No data</div>';return;}
+  var maxLive=Math.max.apply(null,dmsData.map(function(d){return d.live;}));
   var colors=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#e8453c','#0f9d58','#f29900','#673ab7'];
-  dmsData4.forEach(function(d,i){
+  dmsData.forEach(function(d,i){
     var livePct=maxLive>0?((d.live/maxLive)*100).toFixed(1):0;
     var totalPct=d.vins>0?((d.live/d.vins)*100).toFixed(1):0;
-    var tipHtml='<b>'+d.name+'</b><br>Total VINs: '+d.vins.toLocaleString()+'<br>Live VINs: <b>'+d.live.toLocaleString()+'</b> ('+totalPct+'%)<br>Rooftops: <b>'+d.rooftops+'</b>';
+    var tipHtml='<b>'+d.name+'</b><br>Total: '+fmtF(d.vins)+'<br>Live: <b>'+fmtF(d.live)+'</b> ('+totalPct+'%)<br>Rooftops: <b>'+d.rooftops+'</b>';
     var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:11px';
     row.addEventListener('mouseenter',function(e){showTip(e,tipHtml);});row.addEventListener('mouseleave',hideTip);
     var nameEl=document.createElement('div');nameEl.style.cssText='font-size:11px;font-weight:600;color:#202124;width:90px;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';nameEl.textContent=d.name;
     var barBg=document.createElement('div');barBg.style.cssText='flex:1;height:10px;background:#f1f3f4;border-radius:5px;overflow:hidden';
-    var barFill=document.createElement('div');barFill.style.cssText='height:100%;border-radius:5px;transition:width .6s;background:'+colors[i%colors.length]+';width:'+livePct+'%';
+    var barFill=document.createElement('div');barFill.style.cssText='height:100%;border-radius:5px;background:'+colors[i%colors.length]+';width:'+livePct+'%';
     barBg.appendChild(barFill);
     var liveEl=document.createElement('div');liveEl.style.cssText='font-size:11px;font-weight:700;color:#34a853;width:42px;text-align:right;flex-shrink:0';liveEl.textContent=fmt(d.live);
-    var roofEl=document.createElement('div');roofEl.style.cssText='font-size:10px;background:#e8f0fe;color:#1a73e8;border-radius:10px;padding:2px 8px;font-weight:600;flex-shrink:0;white-space:nowrap';roofEl.textContent='RT: '+d.rooftops;
+    var roofEl=document.createElement('div');roofEl.style.cssText='font-size:10px;background:#e8f0fe;color:#1a73e8;border-radius:10px;padding:2px 8px;font-weight:600;flex-shrink:0';roofEl.textContent='RT: '+d.rooftops;
     row.appendChild(nameEl);row.appendChild(barBg);row.appendChild(liveEl);row.appendChild(roofEl);
     container.appendChild(row);
   });
 }
 
-// Team
+// ── Team ──
 function renderTeam(d){
-  // Build person stats from filtered RAW_ROWS
-  var p2  = document.getElementById('fPeriod').value;
-  var pr2 = document.getElementById('fPerson').value;
-  var ty2 = document.getElementById('fType').value;
-  var ac2 = document.getElementById('fAccount').value;
-  var dm2 = document.getElementById('fDMS').value;
-  var from2 = document.getElementById('fFrom').value;
-  var to2   = document.getElementById('fTo').value;
-
-  var cutFrom2='', cutTo2='';
-  if(p2==='custom'){cutFrom2=from2;cutTo2=to2;}
-  else if(p2!=='all'){
-    var days2=parseInt(p2);
-    var last2=DAILY.length?DAILY[DAILY.length-1].date:'';
-    if(last2){var cut2=new Date(last2);cut2.setDate(cut2.getDate()-days2);cutFrom2=cut2.toISOString().slice(0,10);}
-  }
-  var tyMap2={live:'Live',console_dl:'Console Download',console_ul:'Console Upload',dms_dl:'DMS Download',pending:'Pending',no_data:'No Data Available'};
-  var acMap2={franchise:'FRANCHISE',independent:'INDEPENDENT',reseller:'RESELLER'};
-
-  var personMap2={};
-  RAW_ROWS.forEach(function(row){
-    if(cutFrom2&&row.date<cutFrom2)return;
-    if(cutTo2&&row.date>cutTo2)return;
-    if(pr2&&row.per!==pr2)return;
-    if(ty2&&row.tp!==tyMap2[ty2])return;
-    if(ac2&&row.at!==acMap2[ac2])return;
-    if(dm2&&row.dms!==dm2)return;
-    if(!row.per)return;
-    if(!personMap2[row.per])personMap2[row.per]={name:row.per,vins:0,images:0,live:0,pending:0};
-    personMap2[row.per].vins++;
-    personMap2[row.per].images+=row.img;
-    if(row.tp==='Live')personMap2[row.per].live++;
-    if(row.tp==='Pending')personMap2[row.per].pending++;
-  });
-
-  var totalVins=Object.values(personMap2).reduce(function(s,p){return s+p.vins;},0);
-  var persons=Object.values(personMap2).sort(function(a,b){return b.vins-a.vins;});
-  if(!persons.length){document.getElementById('teamCards').innerHTML='<div style="color:#9aa0a6;font-size:12px;padding:20px 0;text-align:center">No data for selected filters</div>';return;}
-
+  d=d||getFiltered();
+  var pr=document.getElementById('fPerson').value;
+  var persons=pr?PERSONS.filter(function(p){return p.name===pr;}):PERSONS;
+  if(!persons.length){document.getElementById('teamCards').innerHTML='<div style="color:#9aa0a6;text-align:center;padding:20px">No data</div>';return;}
   var maxV=persons[0].vins;
   var colors=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8'];
   document.getElementById('teamCards').innerHTML=persons.map(function(p,i){
     var c=colors[i%colors.length];
-    var pctVal=totalVins>0?((p.vins/totalVins)*100).toFixed(1):'0';
-    var r=20,circ=2*Math.PI*r,dash=(parseFloat(pctVal)/100)*circ;
-    var ring='<svg width="48" height="48" viewBox="0 0 48 48" class="team-pct-ring"><circle cx="24" cy="24" r="'+r+'" fill="none" stroke="#f1f3f4" stroke-width="3"/><circle cx="24" cy="24" r="'+r+'" fill="none" stroke="'+c+'" stroke-width="3" stroke-dasharray="'+dash+' '+circ+'" stroke-dashoffset="'+(circ/4)+'" stroke-linecap="round"/><text x="24" y="24" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="700" fill="'+c+'">'+pctVal+'%</text></svg>';
-    return '<div class="team-card">'+ring+'<div class="team-info"><div class="team-name">'+p.name+'</div><div class="team-meta">Live: '+fmtF(p.live)+' &middot; Pending: '+p.pending+'</div><div class="team-bar-bg"><div class="team-bar-fill" style="width:'+((p.vins/maxV)*100).toFixed(1)+'%;background:'+c+'"></div></div></div><div class="team-vals"><div class="team-vins">'+fmt(p.vins)+'</div><div class="team-img">'+fmt(p.images)+' imgs</div></div></div>';
+    var r=20,circ=2*Math.PI*r,dash=(parseFloat(p.pct)/100)*circ;
+    var ring='<svg width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="'+r+'" fill="none" stroke="#f1f3f4" stroke-width="3"/><circle cx="24" cy="24" r="'+r+'" fill="none" stroke="'+c+'" stroke-width="3" stroke-dasharray="'+dash+' '+circ+'" stroke-dashoffset="'+(circ/4)+'" stroke-linecap="round"/><text x="24" y="24" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="700" fill="'+c+'">'+p.pct+'%</text></svg>';
+    return '<div class="team-card">'+ring+'<div class="team-info"><div class="team-name">'+p.name+'</div><div class="team-meta">Live: '+fmtF(p.live)+' · Pending: '+p.pending+'</div><div class="team-bar-bg"><div class="team-bar-fill" style="width:'+((p.vins/maxV)*100).toFixed(1)+'%;background:'+c+'"></div></div></div><div class="team-vals"><div class="team-vins">'+fmt(p.vins)+'</div><div class="team-img">'+fmt(p.images)+' imgs</div></div></div>';
   }).join('');
 }
 
-// Accounts — DOM creation
+// ── Accounts ──
 function renderAccounts(d){
-  // Build account stats from filtered RAW_ROWS
-  var p3  = document.getElementById('fPeriod').value;
-  var pr3 = document.getElementById('fPerson').value;
-  var ty3 = document.getElementById('fType').value;
-  var ac3 = document.getElementById('fAccount').value;
-  var dm3 = document.getElementById('fDMS').value;
-  var from3 = document.getElementById('fFrom').value;
-  var to3   = document.getElementById('fTo').value;
-
-  var cutFrom3='',cutTo3='';
-  if(p3==='custom'){cutFrom3=from3;cutTo3=to3;}
-  else if(p3!=='all'){
-    var days3=parseInt(p3);
-    var last3=DAILY.length?DAILY[DAILY.length-1].date:'';
-    if(last3){var cut3=new Date(last3);cut3.setDate(cut3.getDate()-days3);cutFrom3=cut3.toISOString().slice(0,10);}
-  }
-  var tyMap3={live:'Live',console_dl:'Console Download',console_ul:'Console Upload',dms_dl:'DMS Download',pending:'Pending',no_data:'No Data Available'};
-  var acMap3={franchise:'FRANCHISE',independent:'INDEPENDENT',reseller:'RESELLER'};
-
-  var accountMap3={};
-  RAW_ROWS.forEach(function(row){
-    if(cutFrom3&&row.date<cutFrom3)return;
-    if(cutTo3&&row.date>cutTo3)return;
-    if(pr3&&row.per!==pr3)return;
-    if(ty3&&row.tp!==tyMap3[ty3])return;
-    if(ac3&&row.at!==acMap3[ac3])return;
-    if(dm3&&row.dms!==dm3)return;
-    if(!row.acc)return;
-    if(!accountMap3[row.acc])accountMap3[row.acc]={name:row.acc,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0};
-    accountMap3[row.acc].vins++;accountMap3[row.acc].images+=row.img;
-    if(row.tp==='Live')accountMap3[row.acc].live++;
-    else if(row.tp==='Console Download')accountMap3[row.acc].console_dl++;
-    else if(row.tp==='Console Upload')accountMap3[row.acc].console_ul++;
-    else if(row.tp==='DMS Download')accountMap3[row.acc].dms_dl++;
-  });
-
-  var accounts=Object.values(accountMap3).filter(function(a){return a.live>0;}).sort(function(a,b){return b.live-a.live;}).slice(0,15);
-  if(!accounts.length){document.getElementById('accBars').innerHTML='<div style="color:#9aa0a6;font-size:12px;padding:20px 0;text-align:center">No data for selected filters</div>';document.getElementById('accSub').textContent='No matching accounts';return;}
-
+  var accounts=TOP_ACCOUNTS;
+  if(!accounts.length){document.getElementById('accBars').innerHTML='<div style="color:#9aa0a6;text-align:center;padding:20px">No data</div>';return;}
   var maxV=accounts[0].live;
   var totalLive=accounts.reduce(function(s,a){return s+a.live;},0);
-  document.getElementById('accSub').textContent='Top '+accounts.length+' accounts - '+totalLive.toLocaleString()+' live VINs';
-  var grid=document.createElement('div');
-  grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:6px 36px';
+  document.getElementById('accSub').textContent='Top '+accounts.length+' accounts · '+totalLive.toLocaleString()+' live VINs';
+  var grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:6px 36px';
   accounts.forEach(function(a){
     var bar=maxV>0?((a.live/maxV)*100).toFixed(1):0;
     var livePct=a.vins>0?((a.live/a.vins)*100).toFixed(1):'0';
-    var tipHtml='<b>'+a.name+'</b><br>Live: <b>'+a.live.toLocaleString()+'</b> ('+livePct+'%)<br>Total VINs: '+a.vins.toLocaleString()+'<br>Images: '+a.images.toLocaleString()+'<br>CDL: '+a.console_dl+'<br>CUL: '+a.console_ul+'<br>DMS DL: '+a.dms_dl;
+    var tipHtml='<b>'+a.name+'</b><br>Live: <b>'+fmtF(a.live)+'</b> ('+livePct+'%)<br>Total: '+fmtF(a.vins)+'<br>Images: '+fmtF(a.images);
     var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:7px';
     var nameEl=document.createElement('div');nameEl.style.cssText='font-size:11px;color:#202124;width:180px;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500';nameEl.textContent=a.name;
     var barBg=document.createElement('div');barBg.style.cssText='flex:1;height:10px;background:#f1f3f4;border-radius:5px;overflow:hidden;cursor:pointer';
     barBg.addEventListener('mouseenter',function(e){showTip(e,tipHtml);});barBg.addEventListener('mouseleave',hideTip);
-    var barFill=document.createElement('div');barFill.style.cssText='height:100%;background:#34a853;border-radius:5px;transition:width .6s;width:'+bar+'%';barBg.appendChild(barFill);
-    var numEl=document.createElement('div');numEl.style.cssText='font-size:11px;color:#1e8e3e;font-weight:700;width:54px;text-align:right;flex-shrink:0';numEl.textContent=a.live.toLocaleString();
+    var barFill=document.createElement('div');barFill.style.cssText='height:100%;background:#34a853;border-radius:5px;width:'+bar+'%';barBg.appendChild(barFill);
+    var numEl=document.createElement('div');numEl.style.cssText='font-size:11px;color:#1e8e3e;font-weight:700;width:54px;text-align:right;flex-shrink:0';numEl.textContent=fmtF(a.live);
     row.appendChild(nameEl);row.appendChild(barBg);row.appendChild(numEl);grid.appendChild(row);
   });
   var container=document.getElementById('accBars');container.innerHTML='';container.appendChild(grid);
 }
 
-// Table
+// ── Table ──
 function sortBy(col){if(sortState.col===col)sortState.dir*=-1;else{sortState.col=col;sortState.dir=-1;}renderTable();}
 function renderTable(){
   var d=getFiltered();
   var q=(document.getElementById('tableSearch').value||'').toLowerCase();
-  if(q)d=d.filter(function(r){return r.date.includes(q)||String(r.vins).includes(q);});
-  d=d.slice().sort(function(a,b){var av=a[sortState.col]||0,bv=b[sortState.col]||0;if(typeof av==='string')return sortState.dir*(av<bv?-1:av>bv?1:0);return sortState.dir*(bv-av);});
+  if(q) d=d.filter(function(r){return r.date.includes(q)||String(r.vins).includes(q);});
+  d=d.slice().sort(function(a,b){var av=a[sortState.col]||0,bv=b[sortState.col]||0;if(typeof av==='string')return sortState.dir*(av<bv?-1:1);return sortState.dir*(bv-av);});
   document.getElementById('tblBadge').textContent=d.length+' rows';
   document.getElementById('dtBody').innerHTML=d.map(function(r){
-    return '<tr><td class="td-date">'+r.date+'</td><td class="td-bold">'+fmtF(r.vins)+'</td><td>'+fmtF(r.images)+'</td><td><span class="pill p-live">'+r.live+'</span></td><td><span class="pill p-cdl">'+r.console_dl+'</span></td><td><span class="pill p-cul">'+r.console_ul+'</span></td><td><span class="pill p-dms">'+r.dms_dl+'</span></td><td><span class="pill p-pend">'+r.pending+'</span></td><td><span class="pill p-nd">'+r.no_data+'</span></td><td>'+r.franchise+'</td><td>'+r.independent+'</td><td>'+r.reseller+'</td></tr>';
+    return '<tr><td class="td-date">'+r.date+'</td><td class="td-bold">'+fmtF(r.vins)+'</td><td>'+fmtF(r.images)+'</td><td><span class="pill p-live">'+r.live+'</span></td><td><span class="pill p-cdl">'+r.console_dl+'</span></td><td><span class="pill p-cul">'+r.console_ul+'</span></td><td><span class="pill p-dms">'+r.dms_dl+'</span></td><td><span class="pill p-pend">'+(r.pending||0)+'</span></td><td><span class="pill p-nd">'+(r.no_data||0)+'</span></td><td>'+(r.franchise||0)+'</td><td>'+(r.independent||0)+'</td><td>'+(r.reseller||0)+'</td></tr>';
   }).join('');
 }
 
-// Render all
-function renderAll(){
-  var d=getFiltered();
-  renderScores(d);
-  renderBar(d);
-  renderDonut(d);
-  renderLine();
-  renderTypes(d);
-  renderDMS(d);
-  renderTeam(d);
-  renderAccounts(d);
-  renderTable();
+// ── Modals ──
+function showBarModal(date,vins,images,live,cdl,cul,dms,pending,other){
+  var modal=document.getElementById('barModal');
+  if(!modal){modal=document.createElement('div');modal.id='barModal';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center';modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});document.body.appendChild(modal);}
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:320px;box-shadow:0 8px 40px rgba(0,0,0,.25)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"><b style="font-size:16px;color:#202124">'+date+'</b><button onclick="document.getElementById('barModal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer">&times;</button></div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#f8f9fa"><td style="padding:9px 12px;font-weight:600">Total VINs</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#4285f4">'+fmtF(vins)+'</td></tr><tr><td style="padding:9px 12px;font-weight:600">Images</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#129eaf">'+fmtF(images)+'</td></tr><tr style="background:#f8f9fa"><td style="padding:9px 12px;color:#1e8e3e;font-weight:600">Live</td><td style="padding:9px 12px;text-align:right;color:#1e8e3e;font-weight:700">'+fmtF(live)+' <small style="color:#9aa0a6">('+pct(live,vins)+')</small></td></tr><tr><td style="padding:9px 12px;color:#1a73e8;font-weight:600">Console DL</td><td style="padding:9px 12px;text-align:right;color:#1a73e8;font-weight:700">'+fmtF(cdl)+' <small style="color:#9aa0a6">('+pct(cdl,vins)+')</small></td></tr><tr style="background:#f8f9fa"><td style="padding:9px 12px;color:#9334e6;font-weight:600">Console UL</td><td style="padding:9px 12px;text-align:right;color:#9334e6;font-weight:700">'+fmtF(cul)+' <small style="color:#9aa0a6">('+pct(cul,vins)+')</small></td></tr><tr><td style="padding:9px 12px;color:#f29900;font-weight:600">DMS DL</td><td style="padding:9px 12px;text-align:right;color:#f29900;font-weight:700">'+fmtF(dms)+' <small style="color:#9aa0a6">('+pct(dms,vins)+')</small></td></tr><tr style="background:#f8f9fa"><td style="padding:9px 12px;color:#d93025;font-weight:600">Pending</td><td style="padding:9px 12px;text-align:right;color:#d93025;font-weight:700">'+fmtF(pending)+'</td></tr></table><div style="margin-top:16px;text-align:right"><button onclick="document.getElementById('barModal').style.display='none'" style="background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:7px 20px;font-size:12px;font-weight:700;cursor:pointer">Close</button></div></div>';
+  modal.style.display='flex';
+}
+function showLineModal(month,vins,live,cdl,cul,dms){
+  var modal=document.getElementById('lineModal');
+  if(!modal){modal=document.createElement('div');modal.id='lineModal';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:2000;display:flex;align-items:center;justify-content:center';modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});document.body.appendChild(modal);}
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:320px;box-shadow:0 8px 40px rgba(0,0,0,.25)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"><b style="font-size:16px;color:#202124">'+month+' — Breakdown</b><button onclick="document.getElementById('lineModal').style.display='none'" style="border:none;background:none;font-size:20px;cursor:pointer">&times;</button></div><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="background:#f8f9fa"><td style="padding:9px 12px;font-weight:600">Total VINs</td><td style="padding:9px 12px;text-align:right;font-weight:700;color:#4285f4">'+fmtF(vins)+'</td></tr><tr><td style="padding:9px 12px;color:#1e8e3e;font-weight:600">Live</td><td style="padding:9px 12px;text-align:right;color:#1e8e3e;font-weight:700">'+fmtF(live)+' <small>('+pct(live,vins)+')</small></td></tr><tr style="background:#f8f9fa"><td style="padding:9px 12px;color:#1a73e8;font-weight:600">Console DL</td><td style="padding:9px 12px;text-align:right;color:#1a73e8;font-weight:700">'+fmtF(cdl)+' <small>('+pct(cdl,vins)+')</small></td></tr><tr><td style="padding:9px 12px;color:#9334e6;font-weight:600">Console UL</td><td style="padding:9px 12px;text-align:right;color:#9334e6;font-weight:700">'+fmtF(cul)+' <small>('+pct(cul,vins)+')</small></td></tr><tr style="background:#f8f9fa"><td style="padding:9px 12px;color:#f29900;font-weight:600">DMS DL</td><td style="padding:9px 12px;text-align:right;color:#f29900;font-weight:700">'+fmtF(dms)+' <small>('+pct(dms,vins)+')</small></td></tr></table><div style="margin-top:16px;text-align:right"><button onclick="document.getElementById('lineModal').style.display='none'" style="background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:7px 20px;font-size:12px;font-weight:700;cursor:pointer">Close</button></div></div>';
+  modal.style.display='flex';
 }
 
-document.addEventListener('DOMContentLoaded',function(){fetchAndRender();});
+// ── Populate dropdowns from actual data ──
+function populateDropdowns(){
+  var persons=PERSONS.map(function(p){return p.name;});
+  var dmsNames=DMS_DATA.map(function(d){return d.name;});
+  var pSel=document.getElementById('fPerson');
+  var dSel=document.getElementById('fDMS');
+  while(pSel.options.length>1) pSel.remove(1);
+  while(dSel.options.length>1) dSel.remove(1);
+  persons.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;pSel.appendChild(o);});
+  dmsNames.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;dSel.appendChild(o);});
+}
+
+// ── Render all ──
+function handleFileUpload(input){
+  var f=input.files[0]; if(!f) return;
+  var r=new FileReader();
+  r.onload=function(e){ processAndRender(e.target.result); };
+  r.readAsText(f);
+}
+function handleFileDrop(e){
+  var f=e.dataTransfer.files[0]; if(!f||!f.name.endsWith('.csv')) return;
+  var r=new FileReader();
+  r.onload=function(ev){ processAndRender(ev.target.result); };
+  r.readAsText(f);
+}
+
+function renderAll(){
+  var d=getFiltered();
+  renderScores(d);renderBar(d);renderDonut(d);renderLine();renderTypes(d);renderDMS(d);renderTeam(d);renderAccounts(d);renderTable();
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded',function(){
+  // Hide loader immediately — no fetch needed
+  document.getElementById('loader').classList.add('hide');
+  setStatus('live','Live · '+TOTAL_ROWS.toLocaleString()+' VINs');
+  document.getElementById('dsBar').style.display='flex';
+  document.getElementById('dsUpdated').textContent='Data: Aug 2025 – May 2026 (pre-loaded)';
+  document.getElementById('btnRefresh').disabled=false;
+  populateDropdowns();
+  renderAll();
+});
 </script>
 </body>
-</html>
+</htmlfunction fetchAndRender(){
+  showLoader('Connecting to Google Sheets...');
+  hideError();
+  setStatus('loading','Loading...');
+  document.getElementById('btnRefresh').disabled=true;
+  document.getElementById('refreshIcon').classList.add('spinning');
+
+  var SHEET_ID = '1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0';
+  var GID = '1350286518';
+
+  // Build all URL variants
+  var urls = [
+    'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:csv&gid='+GID+'&t='+Date.now(),
+    'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/export?format=csv&gid='+GID+'&t='+Date.now(),
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv&t='+Date.now()
+  ];
+
+  var proxies = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    'https://thingproxy.freeboard.io/fetch/',
+    'https://api.codetabs.com/v1/proxy?quest='
+  ];
+
+  // Build full attempt list: every proxy x every url
+  var attempts = [];
+  proxies.forEach(function(p){ urls.forEach(function(u){ attempts.push(p+encodeURIComponent(u)); }); });
+
+  var idx = 0;
+
+  function tryNext(){
+    if(idx >= attempts.length){
+      hideLoader();
+      // Show upload fallback UI
+      document.getElementById('uploadFallback').style.display='block';
+      document.getElementById('btnRefresh').disabled=false;
+      document.getElementById('refreshIcon').classList.remove('spinning');
+      setStatus('error','Unable to auto-fetch');
+      return;
+    }
+    var url = attempts[idx++];
+    document.getElementById('loaderSub').textContent='Attempt '+idx+'/'+attempts.length+'...';
+
+    var ctrl = typeof AbortController!=='undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function(){ ctrl.abort(); },8000) : null;
+
+    fetch(url, ctrl?{cache:'no-cache',signal:ctrl.signal}:{cache:'no-cache'})
+      .then(function(r){
+        if(timer) clearTimeout(timer);
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        return r.text();
+      })
+      .then(function(text){
+        if(!text||text.length<100||text.split('\n')[0].indexOf(',')===-1)
+          throw new Error('Invalid CSV len='+text.length);
+        processAndRender(text);
+      })
+      .catch(function(e){
+        if(timer) clearTimeout(timer);
+        tryNext();
+      });
+  }
+
+  tryNext();
+}
+
+function processAndRender(text){
+  try{ processCSV(text); }
+  catch(e){
+    hideLoader();
+    showError('Data parse error: '+e.message);
+    document.getElementById('btnRefresh').disabled=false;
+    document.getElementById('refreshIcon').classList.remove('spinning');
+    return;
+  }
+  document.getElementById('uploadFallback').style.display='none';
+  hideLoader();
+  hideError();
+  setStatus('live','Live · '+TOTAL_ROWS.toLocaleString()+' VINs');
+  document.getElementById('dsBar').style.display='flex';
+  document.getElementById('dsUpdated').textContent='Updated: '+new Date().toLocaleTimeString('en-IN',{hour12:false});
+  document.getElementById('btnRefresh').disabled=false;
+  document.getElementById('refreshIcon').classList.remove('spinning');
+  renderAll();
+}
+>
