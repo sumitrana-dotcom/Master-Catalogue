@@ -481,60 +481,84 @@ function showError(msg){document.getElementById('errorBanner').classList.add('sh
 function hideError(){document.getElementById('errorBanner').classList.remove('show');}
 
 function fetchAndRender(){
-  showLoader('Connecting to Google Sheets...');hideError();setStatus('loading','Loading...');
+  showLoader('Connecting to Google Sheets...');
+  hideError();
+  setStatus('loading','Loading...');
   document.getElementById('btnRefresh').disabled=true;
   document.getElementById('refreshIcon').classList.add('spinning');
 
-  var baseURL = SHEET_URL;
-  var ts = Date.now();
+  var SHEET = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
 
-  // Multiple proxy options — tries each in order until one works
   var proxies = [
-    baseURL + '&t=' + ts,
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent(baseURL),
-    'https://corsproxy.io/?' + encodeURIComponent(baseURL),
-    'https://cors-anywhere.herokuapp.com/' + baseURL
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(SHEET),
+    'https://corsproxy.io/?' + encodeURIComponent(SHEET),
+    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(SHEET),
+    SHEET
   ];
 
-  var attempt = 0;
+  var idx = 0;
 
-  function tryNext(){
-    if(attempt >= proxies.length){
+  function done(text){
+    try{
+      processCSV(text);
+    }catch(e){
+      onFail('CSV parse error: '+e.message);
+      return;
+    }
+    hideLoader();
+    hideError();
+    setStatus('live','Live · '+TOTAL_ROWS.toLocaleString()+' VINs');
+    document.getElementById('dsBar').style.display='flex';
+    document.getElementById('dsUpdated').textContent='Updated: '+new Date().toLocaleTimeString('en-IN',{hour12:false});
+    document.getElementById('btnRefresh').disabled=false;
+    document.getElementById('refreshIcon').classList.remove('spinning');
+    renderAll();
+  }
+
+  function onFail(msg){
+    if(idx >= proxies.length){
       hideLoader();
-      showError('All fetch attempts failed. Please check: 1) Sheet is published to web, 2) Tab name is Data VIN Level-1, 3) Internet connection is active.');
+      showError('Could not load data. '+msg+' — Please ensure your Google Sheet is published: File > Share > Publish to web > CSV.');
       document.getElementById('btnRefresh').disabled=false;
       document.getElementById('refreshIcon').classList.remove('spinning');
       return;
     }
-    var url = proxies[attempt];
-    document.getElementById('loaderSub').textContent = attempt===0 ? 'Fetching from Google Sheets...' : 'Trying proxy '+ attempt +'...';
-    attempt++;
-    fetch(url, {cache:'no-cache'})
+    var url = proxies[idx];
+    idx++;
+    document.getElementById('loaderSub').textContent = 'Trying method '+idx+' of '+proxies.length+'...';
+
+    // Timeout wrapper — abort if takes more than 8 seconds
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = controller ? setTimeout(function(){ controller.abort(); }, 8000) : null;
+    var opts = controller ? {cache:'no-cache', signal:controller.signal} : {cache:'no-cache'};
+
+    fetch(url, opts)
       .then(function(r){
+        if(timer) clearTimeout(timer);
         if(!r.ok) throw new Error('HTTP '+r.status);
         return r.text();
       })
       .then(function(text){
-        // Validate — must look like a CSV with Date header
-        if(!text || text.length < 50 || text.indexOf('Date') === -1){
-          throw new Error('Invalid CSV response');
+        if(!text || text.length < 100){
+          throw new Error('Empty response');
         }
-        processCSV(text);
-        hideLoader();hideError();
-        setStatus('live','Live · '+TOTAL_ROWS.toLocaleString()+' VINs');
-        document.getElementById('dsBar').style.display='flex';
-        document.getElementById('dsUpdated').textContent='Updated: '+new Date().toLocaleTimeString('en-IN',{hour12:false});
-        document.getElementById('btnRefresh').disabled=false;
-        document.getElementById('refreshIcon').classList.remove('spinning');
-        renderAll();
+        // Check it looks like CSV data (has comma-separated values)
+        var firstLine = text.split('
+')[0];
+        if(firstLine.indexOf(',') === -1){
+          throw new Error('Not a CSV');
+        }
+        done(text);
       })
-      .catch(function(){
-        tryNext(); // try next proxy
+      .catch(function(e){
+        if(timer) clearTimeout(timer);
+        onFail(e.message || 'Fetch failed');
       });
   }
 
-  tryNext();
+  onFail('Starting...');
 }
+
 
 // Filters
 function getFiltered(){
