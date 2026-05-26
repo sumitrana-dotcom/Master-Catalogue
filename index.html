@@ -30,7 +30,6 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .fsel:hover,.fsel:focus{border-color:#1a73e8}
 .date-inp{border:1px solid var(--border);background:#fff;border-radius:20px;padding:5px 12px;font-size:12px;outline:none}
 .filter-sep{width:1px;height:24px;background:var(--border)}
-.btn-apply{background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer}
 .btn-reset{background:none;color:#5f6368;border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;cursor:pointer}
 .active-chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:4px;background:#e8f0fe;color:#1a73e8;border-radius:12px;padding:3px 10px;font-size:11px;font-weight:500}
@@ -173,7 +172,6 @@ table.dtbl tr:hover td{background:#f8f9fa}
     <option value="">All DMS</option>
   </select>
   <div class="filter-sep"></div>
-  <button class="btn-apply" onclick="renderAll()">Apply</button>
   <button class="btn-reset" onclick="resetFilters()">Reset</button>
   <div class="active-chips" id="activeChips"></div>
 </div>
@@ -220,7 +218,7 @@ table.dtbl tr:hover td{background:#f8f9fa}
       </div>
     </div>
     <div class="panel">
-      <div class="panel-hd"><div class="panel-title">Account Type Split</div><div class="panel-sub">All records</div></div>
+      <div class="panel-hd"><div class="panel-title">Customer Segment Split</div><div class="panel-sub">By customer_segment (Col L)</div></div>
       <div class="panel-body">
         <div class="donut-wrap">
           <canvas id="donutCv" width="120" height="120" style="flex-shrink:0"></canvas>
@@ -368,6 +366,7 @@ function processCSV(text){
   var ACCN_COL=findCol(['account name'],6);
   var IMG_COL=findCol(['image count','image cnt','img count'],8);
   var TYPE_COL=findCol(['type'],9);
+  var SEG_COL=findCol(['customer_segment','customer segment','segment'],11);
 
   var daily={},personMap={},accountMap={},dmsMap={};
   RAW_ROWS=[];
@@ -385,6 +384,7 @@ function processCSV(text){
     var acc=(cols[ACCN_COL]||'').trim();
     var dms=(cols[DMS_COL]||'').trim();
 
+    var seg=(cols[SEG_COL]||'').trim()||'N/A';
     if(!daily[dr])daily[dr]={date:dr,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,no_data:0,not_found:0,hold:0,franchise:0,independent:0,reseller:0};
     var d=daily[dr];
     d.vins++;d.images+=img;
@@ -414,7 +414,7 @@ function processCSV(text){
     if(dms){if(!dmsMap[dms])dmsMap[dms]={vins:0,live:0,rooftops:{}};
       dmsMap[dms].vins++;if(tp==='Live')dmsMap[dms].live++;if(acc)dmsMap[dms].rooftops[acc]=true;}
 
-    RAW_ROWS.push({date:dr,img:img,tp:tp,at:at,per:per,dms:dms,acc:acc});
+    RAW_ROWS.push({date:dr,img:img,tp:tp,at:at,per:per,dms:dms,acc:acc,seg:seg});
   }
 
   DAILY=Object.values(daily).sort(function(a,b){return a.date.localeCompare(b.date);});
@@ -651,22 +651,77 @@ function renderBar(d){
 // Donut
 function renderDonut(d){
   d = d || getFiltered();
-  var totFr=d.reduce(function(s,r){return s+r.franchise;},0);
-  var totIn=d.reduce(function(s,r){return s+r.independent;},0);
-  var totRe=d.reduce(function(s,r){return s+r.reseller;},0);
-  var total=d.reduce(function(s,r){return s+r.vins;},0);
-  var slices=[{l:'Franchise',v:totFr,c:'#4285f4'},{l:'Independent',v:totIn,c:'#34a853'},{l:'Reseller',v:totRe,c:'#fbbc04'},{l:'N/A',v:Math.max(0,total-totFr-totIn-totRe),c:'#dadce0'}];
+
+  // Build customer_segment totals from filtered RAW_ROWS
+  var p5=document.getElementById('fPeriod').value;
+  var pr5=document.getElementById('fPerson').value;
+  var ty5=document.getElementById('fType').value;
+  var ac5=document.getElementById('fAccount').value;
+  var dm5=document.getElementById('fDMS').value;
+  var from5=document.getElementById('fFrom').value;
+  var to5=document.getElementById('fTo').value;
+  var cutFrom5='',cutTo5='';
+  if(p5==='custom'){cutFrom5=from5;cutTo5=to5;}
+  else if(p5!=='all'){
+    var days5=parseInt(p5);
+    var last5=DAILY.length?DAILY[DAILY.length-1].date:'';
+    if(last5){var cut5=new Date(last5);cut5.setDate(cut5.getDate()-days5);cutFrom5=cut5.toISOString().slice(0,10);}
+  }
+  var tyMap5={live:'Live',console_dl:'Console Download',console_ul:'Console Upload',dms_dl:'DMS Download',pending:'Pending',no_data:'No Data Available'};
+  var acMap5={franchise:'FRANCHISE',independent:'INDEPENDENT',reseller:'RESELLER'};
+
+  var segMap={};
+  RAW_ROWS.forEach(function(row){
+    if(cutFrom5&&row.date<cutFrom5)return;
+    if(cutTo5&&row.date>cutTo5)return;
+    if(pr5&&row.per!==pr5)return;
+    if(ty5&&row.tp!==tyMap5[ty5])return;
+    if(ac5&&row.at!==acMap5[ac5])return;
+    if(dm5&&row.dms!==dm5)return;
+    var s=row.seg||'N/A';
+    segMap[s]=(segMap[s]||0)+1;
+  });
+
+  var total=Object.values(segMap).reduce(function(s,v){return s+v;},0);
+
+  // Color palette for segments
+  var palette=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#ff6d00','#00897b','#8d6e63'];
+  var entries=Object.entries(segMap).sort(function(a,b){return b[1]-a[1];});
+
+  // Draw donut
   var cv=document.getElementById('donutCv'),ctx=cv.getContext('2d');
   ctx.clearRect(0,0,120,120);
+  if(total===0){
+    ctx.beginPath();ctx.arc(60,60,50,0,Math.PI*2);ctx.fillStyle='#f1f3f4';ctx.fill();
+    ctx.beginPath();ctx.arc(60,60,30,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+    ctx.fillStyle='#9aa0a6';ctx.font='10px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('No data',60,60);
+    document.getElementById('donutLeg').innerHTML='';
+    return;
+  }
   var angle=-Math.PI/2;
-  slices.forEach(function(s){if(!s.v)return;var sw=(s.v/total)*Math.PI*2;ctx.beginPath();ctx.moveTo(60,60);ctx.arc(60,60,50,angle,angle+sw);ctx.closePath();ctx.fillStyle=s.c;ctx.fill();angle+=sw;});
+  entries.forEach(function(e,i){
+    var sw=(e[1]/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(60,60);ctx.arc(60,60,50,angle,angle+sw);ctx.closePath();
+    ctx.fillStyle=palette[i%palette.length];ctx.fill();angle+=sw;
+  });
   ctx.beginPath();ctx.arc(60,60,30,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-  ctx.fillStyle='#202124';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(total>0?fmt(total):'0',60,56);
+  ctx.fillStyle='#202124';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(fmt(total),60,56);
   ctx.fillStyle='#5f6368';ctx.font='9px Arial';ctx.fillText('VINs',60,70);
-  document.getElementById('donutLeg').innerHTML=slices.filter(function(s){return s.v>0;}).map(function(s){
-    return '<div class="leg-row"><div class="leg-dot" style="background:'+s.c+'"></div><span class="leg-name">'+s.l+'</span><span class="leg-pct">'+pct(s.v,total)+'</span><span class="leg-count">'+fmtF(s.v)+'</span></div>';
+
+  // Legend
+  document.getElementById('donutLeg').innerHTML=entries.map(function(e,i){
+    return '<div class="leg-row">'
+      +'<div class="leg-dot" style="background:'+palette[i%palette.length]+'"></div>'
+      +'<span class="leg-name">'+e[0]+'</span>'
+      +'<span class="leg-pct">'+pct(e[1],total)+'</span>'
+      +'<span class="leg-count">'+fmtF(e[1])+'</span>'
+      +'</div>';
   }).join('');
+
+  // Update panel subtitle
+  var subEl=document.querySelector('.panel-sub[data-donut]');
+  if(subEl)subEl.textContent='By customer segment';
 }
 
 // Line chart
