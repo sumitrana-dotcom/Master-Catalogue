@@ -487,24 +487,34 @@ function fetchAndRender(){
   document.getElementById('btnRefresh').disabled=true;
   document.getElementById('refreshIcon').classList.add('spinning');
 
-  var SHEET = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
+  // All possible URLs to try — direct export, gviz, published CSV
+  var SHEET_ID = '1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0';
+  var GID = '1350286518';
+  var BASE1 = 'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/export?format=csv&gid='+GID;
+  var BASE2 = 'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:csv&gid='+GID;
+  var BASE3 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
 
-  var proxies = [
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent(SHEET),
-    'https://corsproxy.io/?' + encodeURIComponent(SHEET),
-    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(SHEET),
-    SHEET
+  var PROXY1 = 'https://api.allorigins.win/raw?url=';
+  var PROXY2 = 'https://corsproxy.io/?';
+  var PROXY3 = 'https://api.codetabs.com/v1/proxy?quest=';
+
+  // Try all combinations: proxy × url
+  var attempts = [
+    PROXY1 + encodeURIComponent(BASE1),
+    PROXY2 + encodeURIComponent(BASE1),
+    PROXY1 + encodeURIComponent(BASE2),
+    PROXY2 + encodeURIComponent(BASE2),
+    PROXY3 + encodeURIComponent(BASE1),
+    PROXY1 + encodeURIComponent(BASE3),
+    PROXY2 + encodeURIComponent(BASE3),
+    PROXY3 + encodeURIComponent(BASE2),
   ];
 
   var idx = 0;
 
-  function done(text){
-    try{
-      processCSV(text);
-    }catch(e){
-      onFail('CSV parse error: '+e.message);
-      return;
-    }
+  function onSuccess(text){
+    try{ processCSV(text); }
+    catch(e){ onFail('Parse error: '+e.message); return; }
     hideLoader();
     hideError();
     setStatus('live','Live · '+TOTAL_ROWS.toLocaleString()+' VINs');
@@ -515,49 +525,44 @@ function fetchAndRender(){
     renderAll();
   }
 
-  function onFail(msg){
-    if(idx >= proxies.length){
+  function onFail(reason){
+    if(idx >= attempts.length){
       hideLoader();
-      showError('Could not load data. '+msg+' — Please ensure your Google Sheet is published: File > Share > Publish to web > CSV.');
+      showError('Could not fetch data after '+attempts.length+' attempts. Last error: '+reason
+        +'<br><br><b>Fix:</b> Open Google Sheet → File → Share → Publish to web → Select tab "Data VIN Level-1" → Format "CSV" → Publish');
       document.getElementById('btnRefresh').disabled=false;
       document.getElementById('refreshIcon').classList.remove('spinning');
       return;
     }
-    var url = proxies[idx];
-    idx++;
-    document.getElementById('loaderSub').textContent = 'Trying method '+idx+' of '+proxies.length+'...';
 
-    // Timeout wrapper — abort if takes more than 8 seconds
-    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var timer = controller ? setTimeout(function(){ controller.abort(); }, 8000) : null;
-    var opts = controller ? {cache:'no-cache', signal:controller.signal} : {cache:'no-cache'};
+    var url = attempts[idx++];
+    document.getElementById('loaderSub').textContent = 'Attempt '+idx+' of '+attempts.length+'...';
 
-    fetch(url, opts)
+    var ctrl = typeof AbortController!=='undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 10000) : null;
+
+    fetch(url, ctrl ? {cache:'no-cache',signal:ctrl.signal} : {cache:'no-cache'})
       .then(function(r){
         if(timer) clearTimeout(timer);
         if(!r.ok) throw new Error('HTTP '+r.status);
         return r.text();
       })
       .then(function(text){
-        if(!text || text.length < 100){
-          throw new Error('Empty response');
+        // Must be real CSV — has commas and more than 200 chars
+        if(!text || text.length < 200 || text.split('\n')[0].indexOf(',') === -1){
+          throw new Error('Not valid CSV (len='+text.length+')');
         }
-        // Check it looks like CSV data (has comma-separated values)
-        var firstLine = text.split('
-')[0];
-        if(firstLine.indexOf(',') === -1){
-          throw new Error('Not a CSV');
-        }
-        done(text);
+        onSuccess(text);
       })
       .catch(function(e){
         if(timer) clearTimeout(timer);
-        onFail(e.message || 'Fetch failed');
+        onFail(e.message||'unknown');
       });
   }
 
-  onFail('Starting...');
+  onFail('init');
 }
+
 
 
 // Filters
