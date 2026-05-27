@@ -960,7 +960,7 @@ function renderTable(){
 }
 
 // ── INIT ──
-// ── FETCH VIA ANTHROPIC API ──
+// ── AUTO FETCH ON LOAD ──
 var SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
 
 function setStatus(type,txt){
@@ -971,74 +971,66 @@ function setStatus(type,txt){
   document.getElementById('statusTxt').textContent=txt;
 }
 
-function onDataLoaded(text, source){
+function onDataLoaded(text,source){
   parseCSV(text);
-  document.getElementById('upMsg').textContent=source+' · '+RAW.length.toLocaleString()+' rows · '+new Date().toLocaleTimeString('en-IN',{hour12:false});
-  document.getElementById('upStatus').classList.add('show');
   setStatus('ok','Live · '+RAW.length.toLocaleString()+' VINs');
   populateDropdowns();
   go();
 }
 
 function fetchViaAPI(){
-  setStatus('wait','Loading...');
-  document.getElementById('upMsg').textContent='Fetching from Google Sheets...';
-  document.getElementById('upStatus').classList.add('show');
+  setStatus('wait','Loading data...');
 
-  // Use Anthropic API with web_search to fetch the CSV (bypasses CORS)
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      model:'claude-sonnet-4-20250514',
-      max_tokens:1000,
-      tools:[{type:'web_search_20250305',name:'web_search'}],
-      messages:[{role:'user',content:'Fetch the raw CSV content from this exact URL and return ONLY the raw CSV text with no explanation or formatting: '+SHEET_CSV}]
-    })
-  })
-  .then(function(r){return r.json();})
-  .then(function(data){
-    var text='';
-    if(data.content) data.content.forEach(function(b){if(b.type==='text')text+=b.text;});
-    if(text && text.indexOf(',')!==-1 && text.length>100){
-      onDataLoaded(text,'Google Sheets (live)');
-    } else {
-      tryProxies();
-    }
-  })
-  .catch(function(){ tryProxies(); });
-}
-
-function tryProxies(){
-  var urls=[
-    'https://api.allorigins.win/raw?url='+encodeURIComponent(SHEET_CSV),
-    'https://corsproxy.io/?'+encodeURIComponent(SHEET_CSV),
-    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(SHEET_CSV),
-    'https://thingproxy.freeboard.io/fetch/'+encodeURIComponent(SHEET_CSV)
+  // All proxy combinations to try
+  var proxies = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    'https://api.codetabs.com/v1/proxy?quest=',
+    'https://proxy.cors.sh/',
+    'https://cors-proxy.htmldriven.com/?url='
   ];
-  var i=0;
-  function next(){
-    if(i>=urls.length){
-      setStatus('err','Auto-fetch failed');
-      document.getElementById('upMsg').textContent='Auto-fetch failed — please upload CSV manually below';
-      showEmpty();return;
+
+  var idx = 0;
+
+  function tryNext(){
+    if(idx >= proxies.length){
+      setStatus('err','Auto-fetch failed — upload CSV');
+      return;
     }
-    var url=urls[i++];
-    document.getElementById('upMsg').textContent='Trying method '+i+' of '+urls.length+'...';
-    var ctrl=typeof AbortController!=='undefined'?new AbortController():null;
-    var timer=ctrl?setTimeout(function(){ctrl.abort();},9000):null;
-    fetch(url,ctrl?{cache:'no-cache',signal:ctrl.signal}:{cache:'no-cache'})
-      .then(function(r){if(timer)clearTimeout(timer);if(!r.ok)throw new Error();return r.text();})
-      .then(function(text){
-        if(!text||text.length<100||text.split('\n')[0].indexOf(',')===-1)throw new Error();
-        onDataLoaded(text,'Google Sheets');
+    var proxy = proxies[idx++];
+    var url = proxy + encodeURIComponent(SHEET_CSV + '&t=' + Date.now());
+    setStatus('wait','Connecting... ('+idx+'/'+proxies.length+')');
+
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, 10000) : null;
+
+    fetch(url, ctrl ? {cache:'no-cache', signal:ctrl.signal} : {cache:'no-cache'})
+      .then(function(r){
+        if(timer) clearTimeout(timer);
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        return r.text();
       })
-      .catch(function(){if(timer)clearTimeout(timer);next();});
+      .then(function(text){
+        // Validate it's real CSV with our data
+        if(!text || text.length < 500) throw new Error('Too short: '+text.length);
+        var lines = text.split('
+');
+        var header = lines[0];
+        if(header.indexOf('Date') === -1 && header.indexOf('date') === -1) throw new Error('No Date column');
+        if(lines.length < 5) throw new Error('Too few rows');
+        onDataLoaded(text, 'Google Sheets');
+      })
+      .catch(function(e){
+        if(timer) clearTimeout(timer);
+        console.log('Proxy '+idx+' failed:', e.message);
+        tryNext();
+      });
   }
-  next();
+
+  tryNext();
 }
 
-document.addEventListener('DOMContentLoaded',function(){
+document.addEventListener('DOMContentLoaded', function(){
   fetchViaAPI();
 });
 </script>
