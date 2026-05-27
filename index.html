@@ -308,13 +308,13 @@ function populateDD(){
   var dm=document.getElementById('fDMS'),dv=dm.value;while(dm.options.length>1)dm.remove(1);Object.keys(ds).sort().forEach(function(v){var o=document.createElement('option');o.value=o.textContent=v;dm.appendChild(o);});if(dv)dm.value=dv;
 }
 
-// ── YOUR APPS SCRIPT URL (paste after deploying) ──
+// -- YOUR APPS SCRIPT URL (paste after deploying) --
 // Follow instructions in google_apps_script.js to get this URL
-// ── OPTIONAL: Paste your SheetDB/Sheet.best/Apps Script URL here ──
+// -- OPTIONAL: Paste your SheetDB/Sheet.best/Apps Script URL here --
 var CUSTOM_URL = '';  // e.g. 'https://sheetdb.io/api/v1/XXXXX?sheet=Data+VIN+Level-1'
 
 // Fetch
-// ── FETCH ──
+// -- FETCH --
 function fetchData(){
   setStatus('wait','Fetching from Google Sheets...');
 
@@ -346,11 +346,9 @@ function fetchData(){
         if(b.type === 'text') text += b.text;
       });
     }
-    // Clean up any markdown code blocks if present
-    text = text.replace(/```csv
-?/gi,'').replace(/```
-?/gi,'').trim();
-    
+    // Strip any markdown wrapping
+    text = text.trim();
+        
     if(text && text.length > 500 && text.split('
 ').length > 5 && text.indexOf(',') !== -1){
       loaded(text);
@@ -675,7 +673,7 @@ function rTeam(rows){
     // Info
     var info=document.createElement('div');info.className='ti';
     var name=document.createElement('div');name.className='tn';name.textContent=p.name;
-    var meta=document.createElement('div');meta.className='tm';meta.textContent='Live: '+fmtF(p.live)+' · Pending: '+p.pending;
+    var meta=document.createElement('div');meta.className='tm';meta.textContent='Live: '+fmtF(p.live)+' . Pending: '+p.pending;
     var barBg=document.createElement('div');barBg.className='tb';
     var barFill=document.createElement('div');barFill.className='tf';
     barFill.style.width=((p.vins/maxV)*100).toFixed(1)+'%';
@@ -691,7 +689,7 @@ function rTeam(rows){
 
     card.appendChild(ring);card.appendChild(info);card.appendChild(vals);
 
-    // Click opens modal — using closure, no innerHTML string escaping
+    // Click opens modal - using closure, no innerHTML string escaping
     card.addEventListener('click', (function(p, col, pv){
       return function(){
         var html='<table>'
@@ -755,8 +753,7 @@ function renderTable(){
 }
 
 document.addEventListener('DOMContentLoaded',function(){
-  // Show fix instructions immediately while fetch attempts run in background
-  fetchData();
+  // Click Refresh to load data
 });
 
 function showFixBanner(){
