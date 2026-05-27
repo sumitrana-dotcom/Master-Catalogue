@@ -316,13 +316,12 @@ var CUSTOM_URL = '';  // e.g. 'https://sheetdb.io/api/v1/XXXXX?sheet=Data+VIN+Le
 // Fetch
 // ── FETCH ──
 function fetchData(){
-  setStatus('wait','Loading data...');
+  setStatus('wait','Fetching from Google Sheets...');
 
-  var SHEET_PUB = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
-  var SHEET_GVIZ = 'https://docs.google.com/spreadsheets/d/1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0/gviz/tq?tqx=out:csv&sheet=Data%20VIN%20Level-1';
-  var ts = Date.now();
+  var URL1 = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
+  var URL2 = 'https://docs.google.com/spreadsheets/d/1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0/gviz/tq?tqx=out:csv&sheet=Data%20VIN%20Level-1';
 
-  // Step 1: Try Anthropic API with web_search (works when page runs in Claude context)
+  // Use Anthropic API with web_search to fetch CSV (runs server-side, no CORS)
   fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -331,11 +330,11 @@ function fetchData(){
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2048,
+      max_tokens: 4096,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{
         role: 'user',
-        content: 'Fetch this URL and return ONLY the raw CSV text, nothing else: ' + SHEET_PUB
+        content: 'Please fetch the content of this URL using web_search and return ONLY the raw CSV data with no explanation, no markdown formatting, no code blocks - just the raw CSV text starting with the header row: ' + URL1
       }]
     })
   })
@@ -343,16 +342,67 @@ function fetchData(){
   .then(function(data){
     var text = '';
     if(data && data.content){
-      data.content.forEach(function(b){ if(b.type==='text') text += b.text; });
+      data.content.forEach(function(b){
+        if(b.type === 'text') text += b.text;
+      });
     }
-    if(text && text.length > 500 && text.indexOf(',') !== -1 && text.split('
-').length > 5){
+    // Clean up any markdown code blocks if present
+    text = text.replace(/```csv
+?/gi,'').replace(/```
+?/gi,'').trim();
+    
+    if(text && text.length > 500 && text.split('
+').length > 5 && text.indexOf(',') !== -1){
       loaded(text);
     } else {
-      tryProxies(SHEET_PUB, SHEET_GVIZ, ts);
+      // Try with URL2
+      tryProxyFallback(URL1, URL2);
     }
   })
-  .catch(function(){ tryProxies(SHEET_PUB, SHEET_GVIZ, ts); });
+  .catch(function(e){
+    console.log('Anthropic API failed:', e.message);
+    tryProxyFallback(URL1, URL2);
+  });
+}
+
+function tryProxyFallback(URL1, URL2){
+  var ts = Date.now();
+  var sources = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(URL1 + '&t=' + ts),
+    'https://corsproxy.io/?' + encodeURIComponent(URL1 + '&t=' + ts),
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(URL2 + '&t=' + ts),
+    'https://corsproxy.io/?' + encodeURIComponent(URL2 + '&t=' + ts),
+    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(URL1),
+    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(URL2),
+    'https://proxy.cors.sh/' + URL1,
+    'https://thingproxy.freeboard.io/fetch/' + encodeURIComponent(URL1)
+  ];
+  var i = 0;
+  function next(){
+    if(i >= sources.length){
+      setStatus('err', 'Could not fetch data');
+      showFixBanner();
+      return;
+    }
+    var url = sources[i++];
+    setStatus('wait', 'Trying method ' + i + '/' + sources.length + '...');
+    var fp = fetch(url, {cache:'no-cache'}).then(function(r){
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    });
+    var tp = new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('timeout')); }, 10000); });
+    Promise.race([fp, tp])
+      .then(function(txt){
+        txt = txt.trim();
+        if(!txt || txt.length < 500) throw new Error('too short');
+        if(txt.split('
+').length < 5) throw new Error('too few rows');
+        if(txt.indexOf('Date') === -1 && txt.indexOf('date') === -1) throw new Error('no header');
+        loaded(txt);
+      })
+      .catch(function(e){ console.log('src ' + i + ' failed: ' + e.message); next(); });
+  }
+  next();
 }
 
 function tryProxies(PUB, GVIZ, ts){
@@ -394,31 +444,29 @@ function loaded(text){
   parseCSV(text);
   setStatus('ok','Live '+RAW.length.toLocaleString()+' VINs');
   populateDD();go();
-  var b=document.getElementById('upbanner');if(b)b.style.display='none';
+  // Hide both banners on success
+  ['upbanner','fixbanner'].forEach(function(id){
+    var b=document.getElementById(id);if(b)b.style.display='none';
+  });
 }
 
 function showBanner(){
   var existing = document.getElementById('upbanner');
   if(existing){ existing.style.display='block'; return; }
   var div=document.createElement('div'); div.id='upbanner';
-  div.style.cssText='background:#fff3e0;border:2px solid #ff9800;border-radius:10px;padding:20px 24px;margin-bottom:18px';
+  div.style.cssText='background:#fce8e6;border:2px solid #d93025;border-radius:10px;padding:20px 24px;margin-bottom:18px';
   div.innerHTML=
-    '<div style="font-size:14px;font-weight:700;color:#e65100;margin-bottom:10px">&#9888; Auto-fetch blocked &mdash; Google Sheet is restricted</div>'
-    +'<div style="background:#fff;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#333;line-height:1.9">'
-    +'<b style="color:#d32f2f">Root cause:</b> Your sheet has "Restrict access to Spyne" enabled in Publish settings.<br>'
-    +'<b style="color:#1e8e3e">Fix (30 seconds):</b><br>'
+    '<div style="font-size:14px;font-weight:700;color:#c62828;margin-bottom:10px">&#9888; Cannot fetch data from Google Sheet</div>'
+    +'<div style="background:#fff;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#333;line-height:2">'
+    +'<b>Your Google Sheet has "Restrict access to Spyne" enabled. This blocks all fetching.</b><br><br>'
+    +'<b style="color:#1e8e3e">Fix in 30 seconds:</b><br>'
     +'1. Open Google Sheet &rarr; <b>File &rarr; Share &rarr; Publish to web</b><br>'
-    +'2. Under "Published content &amp; settings" &rarr; <b>UNCHECK</b> "Restrict access to the following"<br>'
-    +'3. Check "Automatically republish when changes are made"<br>'
-    +'4. Click <b>Close</b> &rarr; then click <b>Refresh</b> on this dashboard'
+    +'2. Expand <b>"Published content &amp; settings"</b><br>'
+    +'3. <b style="color:#d32f2f;font-size:13px">UNCHECK "Restrict access to the following: Spyne"</b><br>'
+    +'4. Check <b>"Automatically republish when changes are made"</b><br>'
+    +'5. Click <b>Close</b> &rarr; click <b>&#8635; Refresh</b> button above'
     +'</div>'
-    +'<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
-    +'<label style="background:#1a73e8;color:#fff;border-radius:20px;padding:9px 22px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">'
-    +'&#8679; Upload CSV now (temporary fix)'
-    +'<input type="file" accept=".csv" style="display:none" onchange="(function(f){if(!f)return;var r=new FileReader();r.onload=function(e){loaded(e.target.result);document.getElementById('upbanner').style.display='none';};r.readAsText(f);})(this.files[0])"/>'
-    +'</label>'
-    +'<button onclick="fetchData()" style="background:#34a853;color:#fff;border:none;border-radius:20px;padding:9px 20px;font-size:12px;font-weight:700;cursor:pointer">&#8635; Retry after fixing sheet</button>'
-    +'</div>';
+    +'<button onclick="fetchData()" style="background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">&#8635; Retry Now</button>';
   var main=document.getElementById('mainArea');
   if(main) main.insertBefore(div,main.firstChild);
 }
@@ -706,7 +754,38 @@ function renderTable(){
   });
 }
 
-document.addEventListener('DOMContentLoaded',function(){ fetchData(); });
+document.addEventListener('DOMContentLoaded',function(){
+  // Show fix instructions immediately while fetch attempts run in background
+  fetchData();
+});
+
+function showFixBanner(){
+  var div=document.createElement('div');
+  div.id='fixbanner';
+  div.style.cssText='background:#e8f5e9;border:2px solid #34a853;border-radius:10px;padding:18px 22px;margin-bottom:18px;font-size:13px';
+  div.innerHTML=
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
+    +'<div>'
+    +'<div style="font-weight:700;color:#1b5e20;font-size:14px;margin-bottom:6px">&#128274; One-time fix needed &mdash; Google Sheet access restricted</div>'
+    +'<div style="color:#2e7d32;line-height:1.9">'
+    +'<b>Step 1:</b> Open your Google Sheet &rarr; <b>File &rarr; Share &rarr; Publish to web</b><br>'
+    +'<b>Step 2:</b> Click <b>"Published content &amp; settings"</b><br>'
+    +'<b>Step 3:</b> <b style="color:#d32f2f">UNCHECK</b> the box <b>"Restrict access to the following: Spyne"</b><br>'
+    +'<b>Step 4:</b> Check <b>"Automatically republish when changes are made"</b><br>'
+    +'<b>Step 5:</b> Click <b>Close</b> &rarr; then click the <b>Refresh</b> button above'
+    +'</div>'
+    +'</div>'
+    +'<div style="text-align:right;flex-shrink:0">'
+    +'<div style="font-size:11px;color:#5f6368;margin-bottom:8px">OR load data manually:</div>'
+    +'<label style="background:#1a73e8;color:#fff;border-radius:20px;padding:9px 22px;font-size:12px;font-weight:700;cursor:pointer;display:inline-block">'
+    +'&#8679; Upload CSV'
+    +'<input type="file" accept=".csv" style="display:none" onchange="(function(f){if(!f)return;var r=new FileReader();r.onload=function(e){loaded(e.target.result);document.getElementById('fixbanner').style.display='none';};r.readAsText(f);})(this.files[0])"/>'
+    +'</label>'
+    +'</div>'
+    +'</div>';
+  var main=document.getElementById('mainArea');
+  if(main) main.insertBefore(div,main.firstChild);
+}
 </script>
 </body>
 </html>
