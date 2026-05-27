@@ -20,17 +20,6 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .nav-time{font-size:11px;color:#5f6368;font-family:monospace;min-width:60px}
 /* UPLOAD SECTION */
-.upload-section{background:#fff;border-bottom:1px solid var(--border);padding:12px 24px}
-.upload-box{border:2px dashed #dadce0;border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all .2s;background:#fafafa}
-.upload-box:hover,.upload-box.drag{border-color:#1a73e8;background:#e8f0fe}
-.upload-box-icon{width:44px;height:44px;background:#e8f0fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
-.upload-box-title{font-size:13px;font-weight:700;color:#202124;margin-bottom:3px}
-.upload-box-sub{font-size:11px;color:#5f6368}
-.upload-box-sub b{color:#1a73e8}
-.upload-btn{margin-left:auto;background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
-.upload-btn:hover{background:#1557b0}
-.upload-status{display:none;align-items:center;gap:6px;font-size:11px;color:#1e8e3e;font-weight:600;margin-left:12px;white-space:nowrap}
-.upload-status.show{display:flex}
 /* FILTERS */
 .filterbar{background:#fff;border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:56px;z-index:190}
 .fl{font-size:11px;font-weight:600;color:#5f6368;text-transform:uppercase;letter-spacing:.5px}
@@ -148,20 +137,6 @@ table.dt tr:hover td{background:#f8f9fa}
     <button onclick="fetchViaAPI()" style="background:#1a73e8;color:#fff;border:none;border-radius:16px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">&#8635; Refresh</button>
   </div>
 </nav>
-
-<!-- UPLOAD -->
-<div class="upload-section">
-  <div class="upload-box" id="dropZone" onclick="document.getElementById('fi').click()">
-    <div class="upload-icon">📂</div>
-    <div>
-      <div class="upload-box-title">Daily Refresh &mdash; Upload CSV from Google Sheets</div>
-      <div class="upload-box-sub">Open Google Sheet &rarr; <b>File &rarr; Download &rarr; CSV</b> &rarr; Drop here or click Upload</div>
-    </div>
-    <div class="upload-status" id="upStatus">&#10003; <span id="upMsg">Loaded</span></div>
-    <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('fi').click()">&#8679; Upload CSV</button>
-  </div>
-  <input type="file" id="fi" accept=".csv" style="display:none"/>
-</div>
 
 <!-- FILTERS -->
 <div class="filterbar">
@@ -393,14 +368,7 @@ document.getElementById('fi').addEventListener('change',function(e){
   var f=e.target.files[0];if(!f)return;
   readFile(f);e.target.value='';
 });
-var dz=document.getElementById('dropZone');
-dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag');});
-dz.addEventListener('dragleave',function(){dz.classList.remove('drag');});
-dz.addEventListener('drop',function(e){
-  e.preventDefault();dz.classList.remove('drag');
-  var f=e.dataTransfer.files[0];if(!f||!f.name.toLowerCase().endsWith('.csv'))return;
-  readFile(f);
-});
+// drag-drop removed (auto-fetch enabled)
 function readFile(f){
   var r=new FileReader();
   r.onload=function(ev){
@@ -683,16 +651,57 @@ function renderDonut(rows){
   if(!total){
     ctx.beginPath();ctx.arc(60,60,50,0,Math.PI*2);ctx.fillStyle='#f1f3f4';ctx.fill();
     ctx.beginPath();ctx.arc(60,60,30,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-    document.getElementById('dleg').innerHTML='<div class="empty" style="padding:10px 0">No data</div>';
+    document.getElementById('dleg').innerHTML='<div style="text-align:center;padding:16px;color:#9aa0a6;font-size:12px">No data</div>';
     return;
   }
+  // Draw segments + store angles for click detection
+  var slices=[];
   var angle=-Math.PI/2;
-  entries.forEach(function(e,i){var sw=(e[1]/total)*Math.PI*2;ctx.beginPath();ctx.moveTo(60,60);ctx.arc(60,60,50,angle,angle+sw);ctx.closePath();ctx.fillStyle=PAL[i%PAL.length];ctx.fill();angle+=sw;});
+  entries.forEach(function(e,i){
+    var sw=(e[1]/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(60,60);ctx.arc(60,60,50,angle,angle+sw);ctx.closePath();
+    ctx.fillStyle=PAL[i%PAL.length];ctx.fill();
+    slices.push({label:e[0],count:e[1],start:angle,end:angle+sw,color:PAL[i%PAL.length]});
+    angle+=sw;
+  });
   ctx.beginPath();ctx.arc(60,60,30,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-  ctx.fillStyle='#202124';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(fmt(total),60,56);
+  ctx.fillStyle='#202124';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(fmt(total),60,56);
   ctx.fillStyle='#5f6368';ctx.font='9px Arial';ctx.fillText('VINs',60,70);
+
+  // Canvas click handler
+  cv.style.cursor='pointer';
+  cv.onclick=function(e){
+    var rect=cv.getBoundingClientRect();
+    var mx=e.clientX-rect.left-60,my=e.clientY-rect.top-60;
+    var dist=Math.sqrt(mx*mx+my*my);
+    if(dist<30||dist>50)return;
+    var a=Math.atan2(my,mx);if(a<-Math.PI/2)a+=Math.PI*2;
+    var base=-Math.PI/2; if(a<base)a+=Math.PI*2;
+    slices.forEach(function(s){
+      var sa=s.start<-Math.PI/2?s.start+Math.PI*2:s.start;
+      var ea=s.end<-Math.PI/2?s.end+Math.PI*2:s.end;
+      if(a>=sa&&a<=ea){
+        openModal('Customer Segment: '+s.label,
+          '<table>'
+          +'<tr><td style="font-weight:600">Segment</td><td style="text-align:right;font-weight:700;color:'+s.color+'">'+s.label+'</td></tr>'
+          +'<tr><td style="font-weight:600">VIN Count</td><td style="text-align:right;font-weight:700">'+fmtF(s.count)+'</td></tr>'
+          +'<tr><td style="font-weight:600">Share</td><td style="text-align:right;font-weight:700">'+pct(s.count,total)+'</td></tr>'
+          +'<tr><td style="font-weight:600">Total VINs</td><td style="text-align:right">'+fmtF(total)+'</td></tr>'
+          +'</table>'
+        );
+      }
+    });
+  };
+
+  // Legend rows — also clickable
   document.getElementById('dleg').innerHTML=entries.map(function(e,i){
-    return '<div class="drow"><div class="ddot" style="background:'+PAL[i%PAL.length]+'"></div><span class="dname">'+e[0]+'</span><span class="dpct">'+pct(e[1],total)+'</span><span class="dcnt">'+fmtF(e[1])+'</span></div>';
+    return '<div class="drow" style="cursor:pointer" onclick="openModal('Segment: '+e[0]+'','<table><tr><td>VINs</td><td style=text-align:right;font-weight:700>'+fmtF(e[1])+'</td></tr><tr><td>Share</td><td style=text-align:right;font-weight:700>'+pct(e[1],total)+'</td></tr></table>')">'
+      +'<div class="ddot" style="background:'+PAL[i%PAL.length]+'"></div>'
+      +'<span class="dname">'+e[0]+'</span>'
+      +'<span class="dpct">'+pct(e[1],total)+'</span>'
+      +'<span class="dcnt">'+fmtF(e[1])+'</span>'
+      +'</div>';
   }).join('');
 }
 
@@ -771,20 +780,43 @@ function renderDMS(rows){
   var dm={};
   rows.forEach(function(r){
     if(!r.dms)return;
-    if(!dm[r.dms])dm[r.dms]={vins:0,live:0,rooftops:{}};
-    dm[r.dms].vins++;if(r.tp==='Live')dm[r.dms].live++;if(r.acc)dm[r.dms].rooftops[r.acc]=1;
+    if(!dm[r.dms])dm[r.dms]={vins:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0,images:0,rooftops:{}};
+    dm[r.dms].vins++;dm[r.dms].images+=r.img;
+    if(r.tp==='Live')dm[r.dms].live++;
+    else if(r.tp==='Console Download')dm[r.dms].console_dl++;
+    else if(r.tp==='Console Upload')dm[r.dms].console_ul++;
+    else if(r.tp==='DMS Download')dm[r.dms].dms_dl++;
+    else if(r.tp==='Pending')dm[r.dms].pending++;
+    if(r.acc)dm[r.dms].rooftops[r.acc]=1;
   });
-  var data=Object.entries(dm).map(function(e){return {name:e[0],vins:e[1].vins,live:e[1].live,rooftops:Object.keys(e[1].rooftops).length};}).sort(function(a,b){return b.vins-a.vins;}).slice(0,12);
+  var data=Object.entries(dm).map(function(e){
+    return {name:e[0],vins:e[1].vins,live:e[1].live,console_dl:e[1].console_dl,console_ul:e[1].console_ul,dms_dl:e[1].dms_dl,pending:e[1].pending,images:e[1].images,rooftops:Object.keys(e[1].rooftops).length};
+  }).sort(function(a,b){return b.vins-a.vins;}).slice(0,12);
   var cont=document.getElementById('dbars');cont.innerHTML='';
-  if(!data.length){cont.innerHTML='<div class="empty">No data</div>';return;}
+  if(!data.length){cont.innerHTML='<div style="text-align:center;padding:30px;color:#9aa0a6">No data</div>';return;}
   var maxL=Math.max.apply(null,data.map(function(d){return d.live;}));
   var cols=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#e8453c','#0f9d58','#f29900','#673ab7'];
   data.forEach(function(d,i){
     var livePct=maxL>0?((d.live/maxL)*100).toFixed(1):0;
     var totPct=d.vins>0?((d.live/d.vins)*100).toFixed(1):0;
-    var th='<b>'+d.name+'</b><br>Total: '+fmtF(d.vins)+'<br>Live: <b>'+fmtF(d.live)+'</b> ('+totPct+'%)<br>Rooftops: <b>'+d.rooftops+'</b>';
-    var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:10px';
-    row.addEventListener('mouseenter',function(e){showTip(e,th);});row.addEventListener('mouseleave',hideTip);
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;border-radius:6px;padding:4px 2px;transition:background .15s';
+    row.addEventListener('mouseenter',function(){this.style.background='#f8f9fa';});
+    row.addEventListener('mouseleave',function(){this.style.background='';});
+    row.addEventListener('click',(function(d,c){return function(){
+      openModal('DMS: '+d.name,
+        '<table>'
+        +'<tr><td style="font-weight:600">Total VINs</td><td style="text-align:right;font-weight:700;color:'+c+'">'+fmtF(d.vins)+'</td></tr>'
+        +'<tr><td style="font-weight:600">Total Images</td><td style="text-align:right">'+fmtF(d.images)+'</td></tr>'
+        +'<tr><td style="color:#34a853;font-weight:600">Live</td><td style="text-align:right;font-weight:700;color:#34a853">'+fmtF(d.live)+' <small style="color:#9aa0a6">('+totPct+'%)</small></td></tr>'
+        +'<tr><td style="color:#1a73e8;font-weight:600">Console DL</td><td style="text-align:right;font-weight:700;color:#1a73e8">'+fmtF(d.console_dl)+'</td></tr>'
+        +'<tr><td style="color:#9334e6;font-weight:600">Console UL</td><td style="text-align:right;font-weight:700;color:#9334e6">'+fmtF(d.console_ul)+'</td></tr>'
+        +'<tr><td style="color:#f29900;font-weight:600">DMS DL</td><td style="text-align:right;font-weight:700;color:#f29900">'+fmtF(d.dms_dl)+'</td></tr>'
+        +'<tr><td style="color:#d93025;font-weight:600">Pending</td><td style="text-align:right;font-weight:700;color:#d93025">'+fmtF(d.pending)+'</td></tr>'
+        +'<tr><td style="font-weight:600">Rooftops</td><td style="text-align:right;font-weight:700;color:#1a73e8">'+d.rooftops+'</td></tr>'
+        +'</table>'
+      );
+    };})(d,cols[i%cols.length]));
     var nm=document.createElement('div');nm.style.cssText='font-size:11px;font-weight:600;width:88px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';nm.textContent=d.name;
     var bg=document.createElement('div');bg.style.cssText='flex:1;height:10px;background:#f1f3f4;border-radius:5px;overflow:hidden';
     var fl=document.createElement('div');fl.style.cssText='height:100%;border-radius:5px;background:'+cols[i%cols.length]+';width:'+livePct+'%';bg.appendChild(fl);
@@ -799,13 +831,17 @@ function renderTeam(rows){
   var pm={};
   rows.forEach(function(r){
     if(!r.per)return;
-    if(!pm[r.per])pm[r.per]={name:r.per,vins:0,images:0,live:0,pending:0};
+    if(!pm[r.per])pm[r.per]={name:r.per,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0};
     pm[r.per].vins++;pm[r.per].images+=r.img;
-    if(r.tp==='Live')pm[r.per].live++;if(r.tp==='Pending')pm[r.per].pending++;
+    if(r.tp==='Live')pm[r.per].live++;
+    else if(r.tp==='Console Download')pm[r.per].console_dl++;
+    else if(r.tp==='Console Upload')pm[r.per].console_ul++;
+    else if(r.tp==='DMS Download')pm[r.per].dms_dl++;
+    else if(r.tp==='Pending')pm[r.per].pending++;
   });
   var persons=Object.values(pm).sort(function(a,b){return b.vins-a.vins;});
   var cont=document.getElementById('tcards');
-  if(!persons.length){cont.innerHTML='<div class="empty">No data</div>';return;}
+  if(!persons.length){cont.innerHTML='<div style="text-align:center;padding:30px;color:#9aa0a6">No data</div>';return;}
   var total=persons.reduce(function(s,p){return s+p.vins;},0);
   var maxV=persons[0].vins;
   var cols=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8'];
@@ -814,7 +850,17 @@ function renderTeam(rows){
     var pv=total>0?((p.vins/total)*100).toFixed(1):'0';
     var r=20,circ=2*Math.PI*r,dash=(parseFloat(pv)/100)*circ;
     var ring='<svg width="46" height="46" viewBox="0 0 46 46" style="flex-shrink:0"><circle cx="23" cy="23" r="'+r+'" fill="none" stroke="#f1f3f4" stroke-width="3"/><circle cx="23" cy="23" r="'+r+'" fill="none" stroke="'+c+'" stroke-width="3" stroke-dasharray="'+dash+' '+circ+'" stroke-dashoffset="'+(circ/4)+'" stroke-linecap="round"/><text x="23" y="23" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="700" fill="'+c+'">'+pv+'%</text></svg>';
-    return '<div class="tcard">'+ring+'<div class="tinfo"><div class="tname">'+p.name+'</div><div class="tmeta">Live: '+fmtF(p.live)+' &middot; Pending: '+p.pending+'</div><div class="tbarbg"><div class="tbarfill" style="width:'+((p.vins/maxV)*100).toFixed(1)+'%;background:'+c+'"></div></div></div><div class="tvals"><div class="tvins">'+fmt(p.vins)+'</div><div class="timgs">'+fmt(p.images)+' imgs</div></div></div>';
+    var modalHtml='<table>'
+      +'<tr><td style="font-weight:600">Total VINs</td><td style="text-align:right;font-weight:700;color:'+c+'">'+fmtF(p.vins)+'</td></tr>'
+      +'<tr><td style="font-weight:600">Total Images</td><td style="text-align:right">'+fmtF(p.images)+'</td></tr>'
+      +'<tr><td style="color:#34a853;font-weight:600">Live</td><td style="text-align:right;font-weight:700;color:#34a853">'+fmtF(p.live)+' <small style="color:#9aa0a6">('+pct(p.live,p.vins)+')</small></td></tr>'
+      +'<tr><td style="color:#1a73e8;font-weight:600">Console DL</td><td style="text-align:right;font-weight:700;color:#1a73e8">'+fmtF(p.console_dl)+'</td></tr>'
+      +'<tr><td style="color:#9334e6;font-weight:600">Console UL</td><td style="text-align:right;font-weight:700;color:#9334e6">'+fmtF(p.console_ul)+'</td></tr>'
+      +'<tr><td style="color:#f29900;font-weight:600">DMS DL</td><td style="text-align:right;font-weight:700;color:#f29900">'+fmtF(p.dms_dl)+'</td></tr>'
+      +'<tr><td style="color:#d93025;font-weight:600">Pending</td><td style="text-align:right;font-weight:700;color:#d93025">'+fmtF(p.pending)+'</td></tr>'
+      +'<tr><td style="font-weight:600">Share of Total</td><td style="text-align:right;font-weight:700">'+pv+'%</td></tr>'
+      +'</table>';
+    return '<div class="tcard" style="cursor:pointer;border-radius:8px;padding:8px 4px;transition:background .15s" onmouseenter="this.style.background='#f8f9fa'" onmouseleave="this.style.background=''" onclick="openModal(''+p.name+'',''+modalHtml.replace(/'/g,"\'")+'')">'+ring+'<div class="tinfo"><div class="tname">'+p.name+'</div><div class="tmeta">Live: '+fmtF(p.live)+' &middot; Pending: '+p.pending+'</div><div class="tbarbg"><div class="tbarfill" style="width:'+((p.vins/maxV)*100).toFixed(1)+'%;background:'+c+'"></div></div></div><div class="tvals"><div class="tvins">'+fmt(p.vins)+'</div><div class="timgs">'+fmt(p.images)+' imgs</div></div></div>';
   }).join('');
 }
 
@@ -823,27 +869,43 @@ function renderAccounts(rows){
   var am={};
   rows.forEach(function(r){
     if(!r.acc)return;
-    if(!am[r.acc])am[r.acc]={name:r.acc,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0};
+    if(!am[r.acc])am[r.acc]={name:r.acc,vins:0,images:0,live:0,console_dl:0,console_ul:0,dms_dl:0,pending:0};
     am[r.acc].vins++;am[r.acc].images+=r.img;
     if(r.tp==='Live')am[r.acc].live++;
     else if(r.tp==='Console Download')am[r.acc].console_dl++;
     else if(r.tp==='Console Upload')am[r.acc].console_ul++;
     else if(r.tp==='DMS Download')am[r.acc].dms_dl++;
+    else if(r.tp==='Pending')am[r.acc].pending++;
   });
   var accs=Object.values(am).filter(function(a){return a.live>0;}).sort(function(a,b){return b.live-a.live;}).slice(0,15);
   var cont=document.getElementById('abars');cont.innerHTML='';
-  if(!accs.length){cont.innerHTML='<div class="empty">No data</div>';return;}
+  if(!accs.length){cont.innerHTML='<div style="text-align:center;padding:30px;color:#9aa0a6">No data</div>';return;}
   var maxV=accs[0].live;
   var totalLive=accs.reduce(function(s,a){return s+a.live;},0);
-  document.getElementById('asub').textContent='Top '+accs.length+' accounts &middot; '+totalLive.toLocaleString()+' live VINs';
-  var grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:5px 32px';
+  document.getElementById('asub').textContent='Top '+accs.length+' accounts · '+totalLive.toLocaleString()+' live VINs';
+  var grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:5px 32px';
   accs.forEach(function(a){
     var lp=a.vins>0?((a.live/a.vins)*100).toFixed(1):'0';
-    var th='<b>'+a.name+'</b><br>Live: <b>'+fmtF(a.live)+'</b> ('+lp+'%)<br>Total: '+fmtF(a.vins)+'<br>Images: '+fmtF(a.images);
-    var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px';
+    var row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;border-radius:6px;padding:3px 2px;transition:background .15s';
+    row.addEventListener('mouseenter',function(){this.style.background='#f8f9fa';});
+    row.addEventListener('mouseleave',function(){this.style.background='';});
+    row.addEventListener('click',(function(a){return function(){
+      openModal(a.name,
+        '<table>'
+        +'<tr><td style="font-weight:600">Total VINs</td><td style="text-align:right;font-weight:700">'+fmtF(a.vins)+'</td></tr>'
+        +'<tr><td style="font-weight:600">Total Images</td><td style="text-align:right">'+fmtF(a.images)+'</td></tr>'
+        +'<tr><td style="color:#34a853;font-weight:600">Live</td><td style="text-align:right;font-weight:700;color:#34a853">'+fmtF(a.live)+' <small>('+lp+'%)</small></td></tr>'
+        +'<tr><td style="color:#1a73e8;font-weight:600">Console DL</td><td style="text-align:right;font-weight:700;color:#1a73e8">'+fmtF(a.console_dl)+'</td></tr>'
+        +'<tr><td style="color:#9334e6;font-weight:600">Console UL</td><td style="text-align:right;font-weight:700;color:#9334e6">'+fmtF(a.console_ul)+'</td></tr>'
+        +'<tr><td style="color:#f29900;font-weight:600">DMS DL</td><td style="text-align:right;font-weight:700;color:#f29900">'+fmtF(a.dms_dl)+'</td></tr>'
+        +'<tr><td style="color:#d93025;font-weight:600">Pending</td><td style="text-align:right;font-weight:700;color:#d93025">'+fmtF(a.pending)+'</td></tr>'
+        +'</table>'
+      );
+    };})(a));
     var nm=document.createElement('div');nm.style.cssText='font-size:11px;font-weight:500;width:170px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';nm.textContent=a.name;
-    var bg=document.createElement('div');bg.style.cssText='flex:1;height:10px;background:#f1f3f4;border-radius:5px;overflow:hidden;cursor:pointer';
-    bg.addEventListener('mouseenter',function(e){showTip(e,th);});bg.addEventListener('mouseleave',hideTip);
+    var bg=document.createElement('div');bg.style.cssText='flex:1;height:10px;background:#f1f3f4;border-radius:5px;overflow:hidden';
     var fl=document.createElement('div');fl.style.cssText='height:100%;background:#34a853;border-radius:5px;width:'+((a.live/maxV)*100).toFixed(1)+'%';bg.appendChild(fl);
     var nv=document.createElement('div');nv.style.cssText='font-size:11px;font-weight:700;color:#1e8e3e;width:50px;text-align:right;flex-shrink:0';nv.textContent=fmtF(a.live);
     row.appendChild(nm);row.appendChild(bg);row.appendChild(nv);grid.appendChild(row);
@@ -859,12 +921,42 @@ function renderTable(){
   if(q)d=d.filter(function(r){return r.date.includes(q)||String(r.vins).includes(q);});
   d=d.slice().sort(function(a,b){var av=a[sortS.col]||0,bv=b[sortS.col]||0;if(typeof av==='string')return sortS.dir*(av<bv?-1:av>bv?1:0);return sortS.dir*(bv-av);});
   document.getElementById('tbadge').textContent=d.length+' rows';
-  document.getElementById('tbody').innerHTML=d.map(function(r){
-    return '<tr><td style="color:#1a73e8;font-weight:700;font-size:11px">'+r.date+'</td><td style="font-weight:700">'+fmtF(r.vins)+'</td><td>'+fmtF(r.images)+'</td>'
-      +'<td><span class="pill pl">'+r.live+'</span></td><td><span class="pill pc">'+r.console_dl+'</span></td><td><span class="pill pu">'+r.console_ul+'</span></td>'
-      +'<td><span class="pill pd">'+r.dms_dl+'</span></td><td><span class="pill pp">'+r.pending+'</span></td><td><span class="pill pn">'+r.no_data+'</span></td>'
-      +'<td>'+r.franchise+'</td><td>'+r.independent+'</td><td>'+r.reseller+'</td></tr>';
-  }).join('');
+  var tbody = document.getElementById('tbody');
+  tbody.innerHTML='';
+  d.forEach(function(r){
+    var tr=document.createElement('tr');
+    tr.style.cursor='pointer';
+    tr.innerHTML='<td style="color:#1a73e8;font-weight:700;font-size:11px">'+r.date+'</td>'
+      +'<td style="font-weight:700">'+fmtF(r.vins)+'</td><td>'+fmtF(r.images)+'</td>'
+      +'<td><span class="pill pl">'+r.live+'</span></td>'
+      +'<td><span class="pill pc">'+r.console_dl+'</span></td>'
+      +'<td><span class="pill pu">'+r.console_ul+'</span></td>'
+      +'<td><span class="pill pd">'+r.dms_dl+'</span></td>'
+      +'<td><span class="pill pp">'+r.pending+'</span></td>'
+      +'<td><span class="pill pn">'+r.no_data+'</span></td>'
+      +'<td>'+r.franchise+'</td><td>'+r.independent+'</td><td>'+r.reseller+'</td>';
+    tr.addEventListener('mouseenter',function(){this.style.background='#e8f0fe';});
+    tr.addEventListener('mouseleave',function(){this.style.background='';});
+    tr.addEventListener('click',(function(r){return function(){
+      openModal('Daily Detail: '+r.date,
+        '<table>'
+        +'<tr><td style="font-weight:600">Date</td><td style="text-align:right;font-weight:700;color:#1a73e8">'+r.date+'</td></tr>'
+        +'<tr><td style="font-weight:600">Total VINs</td><td style="text-align:right;font-weight:700;color:#4285f4">'+fmtF(r.vins)+'</td></tr>'
+        +'<tr><td style="font-weight:600">Total Images</td><td style="text-align:right;color:#129eaf;font-weight:700">'+fmtF(r.images)+'</td></tr>'
+        +'<tr><td style="color:#34a853;font-weight:600">Live</td><td style="text-align:right;font-weight:700;color:#34a853">'+fmtF(r.live)+' <small style="color:#9aa0a6">('+pct(r.live,r.vins)+')</small></td></tr>'
+        +'<tr><td style="color:#1a73e8;font-weight:600">Console DL</td><td style="text-align:right;font-weight:700;color:#1a73e8">'+fmtF(r.console_dl)+' <small style="color:#9aa0a6">('+pct(r.console_dl,r.vins)+')</small></td></tr>'
+        +'<tr><td style="color:#9334e6;font-weight:600">Console UL</td><td style="text-align:right;font-weight:700;color:#9334e6">'+fmtF(r.console_ul)+' <small style="color:#9aa0a6">('+pct(r.console_ul,r.vins)+')</small></td></tr>'
+        +'<tr><td style="color:#f29900;font-weight:600">DMS DL</td><td style="text-align:right;font-weight:700;color:#f29900">'+fmtF(r.dms_dl)+' <small style="color:#9aa0a6">('+pct(r.dms_dl,r.vins)+')</small></td></tr>'
+        +'<tr><td style="color:#d93025;font-weight:600">Pending</td><td style="text-align:right;font-weight:700;color:#d93025">'+fmtF(r.pending)+'</td></tr>'
+        +'<tr><td style="color:#80868b;font-weight:600">No Data</td><td style="text-align:right;color:#80868b">'+fmtF(r.no_data)+'</td></tr>'
+        +'<tr><td style="font-weight:600">Franchise</td><td style="text-align:right">'+fmtF(r.franchise)+'</td></tr>'
+        +'<tr><td style="font-weight:600">Independent</td><td style="text-align:right">'+fmtF(r.independent)+'</td></tr>'
+        +'<tr><td style="font-weight:600">Reseller</td><td style="text-align:right">'+fmtF(r.reseller)+'</td></tr>'
+        +'</table>'
+      );
+    };})(r));
+    tbody.appendChild(tr);
+  });
 }
 
 // ── INIT ──
