@@ -308,29 +308,52 @@ function populateDD(){
   var dm=document.getElementById('fDMS'),dv=dm.value;while(dm.options.length>1)dm.remove(1);Object.keys(ds).sort().forEach(function(v){var o=document.createElement('option');o.value=o.textContent=v;dm.appendChild(o);});if(dv)dm.value=dv;
 }
 
+// ── YOUR APPS SCRIPT URL (paste after deploying) ──
+// Follow instructions in google_apps_script.js to get this URL
+// ── OPTIONAL: Paste your SheetDB/Sheet.best/Apps Script URL here ──
+var CUSTOM_URL = '';  // e.g. 'https://sheetdb.io/api/v1/XXXXX?sheet=Data+VIN+Level-1'
+
 // Fetch
+// ── FETCH ──
 function fetchData(){
-  setStatus('wait','Loading...');
-  var proxies=[
-    'https://api.allorigins.win/raw?url='+encodeURIComponent(SHEET+'&t='+Date.now()),
-    'https://corsproxy.io/?'+encodeURIComponent(SHEET+'&t='+Date.now()),
-    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(SHEET),
-    'https://proxy.cors.sh/'+SHEET,
-    'https://thingproxy.freeboard.io/fetch/'+SHEET
+  setStatus('wait','Fetching...');
+  var b=document.getElementById('upbanner');if(b)b.remove();
+
+  var GVIZ='https://docs.google.com/spreadsheets/d/1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0/gviz/tq?tqx=out:csv&sheet=Data%20VIN%20Level-1';
+  var PUB=SHEET;
+  var ts=Date.now();
+
+  var sources=[
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(PUB+'&t='+ts),
+    'https://corsproxy.io/?'+encodeURIComponent(PUB+'&t='+ts),
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(GVIZ+'&t='+ts),
+    'https://corsproxy.io/?'+encodeURIComponent(GVIZ+'&t='+ts),
+    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(PUB),
+    'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(GVIZ),
+    'https://proxy.cors.sh/'+PUB,
+    'https://thingproxy.freeboard.io/fetch/'+PUB
   ];
+
   var i=0;
   function next(){
-    if(i>=proxies.length){setStatus('err','Auto-fetch failed - upload CSV');showBanner();return;}
-    var url=proxies[i++];setStatus('wait','Connecting '+(i)+'/'+proxies.length+'...');
-    var ctrl=typeof AbortController!=='undefined'?new AbortController():null;
-    var timer=ctrl?setTimeout(function(){ctrl.abort();},10000):null;
-    fetch(url,ctrl?{cache:'no-cache',signal:ctrl.signal}:{cache:'no-cache'})
-      .then(function(r){if(timer)clearTimeout(timer);if(!r.ok)throw new Error();return r.text();})
-      .then(function(txt){if(!txt||txt.length<500||txt.split('\n').length<5||(txt.indexOf('Date')===-1&&txt.indexOf('date')===-1))throw new Error();loaded(txt);})
-      .catch(function(){if(timer)clearTimeout(timer);next();});
+    if(i>=sources.length){setStatus('err','Auto-fetch failed');showBanner();return;}
+    var url=sources[i++];
+    setStatus('wait','Connecting '+i+'/'+sources.length+'...');
+    // Promise.race timeout — NO AbortController (causes clone error)
+    var fp=fetch(url,{cache:'no-cache'}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();});
+    var tp=new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},10000);});
+    Promise.race([fp,tp])
+      .then(function(txt){
+        if(!txt||txt.length<500)throw new Error('too short');
+        if(txt.split('\n').length<5)throw new Error('too few rows');
+        if(txt.indexOf('Date')===-1&&txt.indexOf('date')===-1)throw new Error('no header');
+        loaded(txt);
+      })
+      .catch(function(e){console.log('src'+i+':',e.message);next();});
   }
   next();
 }
+
 
 function loaded(text){
   parseCSV(text);
@@ -342,12 +365,24 @@ function loaded(text){
 function showBanner(){
   if(document.getElementById('upbanner'))return;
   var div=document.createElement('div');div.id='upbanner';
-  div.style.cssText='background:#fff8e1;border:2px dashed #f9a825;border-radius:10px;padding:20px;text-align:center;margin-bottom:18px';
-  div.innerHTML='<div style="font-size:13px;font-weight:700;color:#e65100;margin-bottom:6px">CORS blocked - Please upload CSV manually</div>'
-    +'<div style="font-size:12px;color:#5f6368;margin-bottom:12px">Google Sheet > File > Download > Comma Separated Values (.csv)</div>'
+  div.style.cssText='background:#fff8e1;border:2px dashed #f9a825;border-radius:10px;padding:20px;margin-bottom:18px';
+  div.innerHTML=
+    '<div style="font-size:15px;font-weight:700;color:#e65100;margin-bottom:10px">&#9888; Auto-fetch blocked by Google Sheet restriction</div>'
+    +'<div style="font-size:12px;color:#202124;background:#fff3e0;border-radius:8px;padding:12px 16px;margin-bottom:14px;text-align:left">'
+    +'<b>Root Cause:</b> Your sheet has <b>"Restrict access to Spyne"</b> checked in Publish settings.<br><br>'
+    +'<b>One-time fix (30 seconds):</b><br>'
+    +'1. Open Google Sheet<br>'
+    +'2. File &rarr; Share &rarr; Publish to web<br>'
+    +'3. <b style="color:#d93025">Uncheck</b> "Restrict access to the following"<br>'
+    +'4. Check "Automatically republish when changes are made"<br>'
+    +'5. Click Close &rarr; then click Refresh button on dashboard'
+    +'</div>'
+    +'<div style="font-size:12px;color:#5f6368;margin-bottom:10px;text-align:center"><b>OR</b> upload CSV manually right now:</div>'
+    +'<div style="text-align:center">'
     +'<label style="background:#1a73e8;color:#fff;border-radius:20px;padding:9px 22px;font-size:12px;font-weight:700;cursor:pointer;display:inline-block">'
-    +'Upload CSV <input type="file" accept=".csv" style="display:none" onchange="(function(f){if(!f)return;var r=new FileReader();r.onload=function(e){loaded(e.target.result);};r.readAsText(f);})(this.files[0])"/>'
-    +'</label>';
+    +'&#8679; Upload CSV <input type="file" accept=".csv" style="display:none" onchange="(function(f){if(!f)return;var r=new FileReader();r.onload=function(e){loaded(e.target.result);};r.readAsText(f);})(this.files[0])"/>'
+    +'</label>'
+    +'</div>';
   var main=document.getElementById('mainArea');if(main)main.insertBefore(div,main.firstChild);
 }
 
@@ -436,7 +471,29 @@ function rDonut(rows){
   ctx.fillStyle='#202124';ctx.font='bold 12px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(fmt(total),60,56);
   ctx.fillStyle='#5f6368';ctx.font='9px Arial';ctx.fillText('VINs',60,70);
   cv.onclick=function(e){var rect=cv.getBoundingClientRect();var mx=e.clientX-rect.left-60,my=e.clientY-rect.top-60;var dist=Math.sqrt(mx*mx+my*my);if(dist<30||dist>50)return;var a=Math.atan2(my,mx);slices.forEach(function(s){var sa=s.start,ea=s.end;if(a>=sa&&a<ea){openM('Segment: '+s.label,'<table>'+mRow('Segment',s.label,s.color)+mRow('VIN Count',fmtF(s.count))+mRow('Share',pct(s.count,total))+'</table>');}});};
-  document.getElementById('dleg').innerHTML=entries.map(function(e,i){return '<div class="dr" onclick="openM(\'Segment: '+e[0]+'\',\'<table><tr><td>VINs</td><td style=text-align:right;font-weight:700>'+fmtF(e[1])+'</td></tr><tr><td>Share</td><td style=text-align:right;font-weight:700>'+pct(e[1],total)+'</td></tr></table>\')">'+'<div class="dd" style="background:'+PAL[i%PAL.length]+'"></div><span class="dn">'+e[0]+'</span><span class="dp">'+pct(e[1],total)+'</span><span class="dc">'+fmtF(e[1])+'</span></div>';}).join('');
+  // Build legend using DOM (avoids quote escaping issues)
+  var dlegEl = document.getElementById('dleg');
+  dlegEl.innerHTML = '';
+  entries.forEach(function(e,i){
+    var div = document.createElement('div');
+    div.className = 'dr';
+    div.innerHTML = '<div class="dd" style="background:'+PAL[i%PAL.length]+'"></div>'
+      + '<span class="dn">'+e[0]+'</span>'
+      + '<span class="dp">'+pct(e[1],total)+'</span>'
+      + '<span class="dc">'+fmtF(e[1])+'</span>';
+    div.addEventListener('click',(function(label,count){
+      return function(){
+        openM('Segment: '+label,
+          '<table>'
+          + mRow('Segment', label)
+          + mRow('VIN Count', fmtF(count))
+          + mRow('Share', pct(count, total))
+          + '</table>'
+        );
+      };
+    })(e[0], e[1]));
+    dlegEl.appendChild(div);
+  });
 }
 
 // Line chart
