@@ -349,8 +349,8 @@ function fetchData(){
     // Strip any markdown wrapping
     text = text.trim();
         
-    if(text && text.length > 500 && text.split('
-').length > 5 && text.indexOf(',') !== -1){
+    if(text && text.length > 500 && text.split('\n').length > 5 && text.indexOf(',') !== -1){
+
       loaded(text);
     } else {
       // Try with URL2
@@ -393,8 +393,7 @@ function tryProxyFallback(URL1, URL2){
       .then(function(txt){
         txt = txt.trim();
         if(!txt || txt.length < 500) throw new Error('too short');
-        if(txt.split('
-').length < 5) throw new Error('too few rows');
+        if(txt.split('\n').length < 5) throw new Error('too few rows');
         if(txt.indexOf('Date') === -1 && txt.indexOf('date') === -1) throw new Error('no header');
         loaded(txt);
       })
@@ -427,8 +426,7 @@ function tryProxies(PUB, GVIZ, ts){
     Promise.race([fp, tp])
       .then(function(txt){
         if(!txt || txt.length < 500) throw new Error('short');
-        if(txt.split('
-').length < 5) throw new Error('rows');
+        if(txt.split('\n').length < 5) throw new Error('rows');
         if(txt.indexOf('Date') === -1 && txt.indexOf('date') === -1) throw new Error('header');
         loaded(txt);
       })
