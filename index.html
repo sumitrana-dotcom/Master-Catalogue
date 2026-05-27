@@ -439,32 +439,39 @@ function tryProxies(PUB, GVIZ, ts){
 function loaded(text){
   parseCSV(text);
   setStatus('ok','Live '+RAW.length.toLocaleString()+' VINs');
-  populateDD();go();
-  // Hide both banners on success
-  ['upbanner','fixbanner'].forEach(function(id){
-    var b=document.getElementById(id);if(b)b.style.display='none';
-  });
+  populateDD();
+  go();
+  var b1=document.getElementById('upbanner');if(b1)b1.style.display='none';
+  var b2=document.getElementById('fixbanner');if(b2)b2.style.display='none';
 }
 
 function showBanner(){
-  var existing = document.getElementById('upbanner');
-  if(existing){ existing.style.display='block'; return; }
-  var div=document.createElement('div'); div.id='upbanner';
-  div.style.cssText='background:#fce8e6;border:2px solid #d93025;border-radius:10px;padding:20px 24px;margin-bottom:18px';
-  div.innerHTML=
-    '<div style="font-size:14px;font-weight:700;color:#c62828;margin-bottom:10px">&#9888; Cannot fetch data from Google Sheet</div>'
-    +'<div style="background:#fff;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#333;line-height:2">'
-    +'<b>Your Google Sheet has "Restrict access to Spyne" enabled. This blocks all fetching.</b><br><br>'
-    +'<b style="color:#1e8e3e">Fix in 30 seconds:</b><br>'
-    +'1. Open Google Sheet &rarr; <b>File &rarr; Share &rarr; Publish to web</b><br>'
-    +'2. Expand <b>"Published content &amp; settings"</b><br>'
-    +'3. <b style="color:#d32f2f;font-size:13px">UNCHECK "Restrict access to the following: Spyne"</b><br>'
-    +'4. Check <b>"Automatically republish when changes are made"</b><br>'
-    +'5. Click <b>Close</b> &rarr; click <b>&#8635; Refresh</b> button above'
-    +'</div>'
-    +'<button onclick="fetchData()" style="background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">&#8635; Retry Now</button>';
-  var main=document.getElementById('mainArea');
-  if(main) main.insertBefore(div,main.firstChild);
+  if(document.getElementById('upbanner')) return;
+  var div = document.createElement('div');
+  div.id = 'upbanner';
+  div.style.cssText = 'background:#fce8e6;border:2px solid #d93025;border-radius:10px;padding:20px 24px;margin-bottom:18px';
+
+  var title = document.createElement('div');
+  title.style.cssText = 'font-size:14px;font-weight:700;color:#c62828;margin-bottom:10px';
+  title.textContent = 'Cannot fetch data from Google Sheet';
+  div.appendChild(title);
+
+  var body = document.createElement('div');
+  body.style.cssText = 'background:#fff;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#333;line-height:2';
+  body.innerHTML = '<b>Fix:</b> Open Google Sheet > File > Share > Publish to web<br>'
+    + 'Uncheck <b>"Restrict access to the following: Spyne"</b><br>'
+    + 'Check <b>"Automatically republish when changes are made"</b><br>'
+    + 'Then click Close and hit the Refresh button';
+  div.appendChild(body);
+
+  var btn = document.createElement('button');
+  btn.style.cssText = 'background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer';
+  btn.textContent = 'Retry Now';
+  btn.onclick = function(){ fetchData(); };
+  div.appendChild(btn);
+
+  var main = document.getElementById('mainArea');
+  if(main) main.insertBefore(div, main.firstChild);
 }
 
 // Filters
@@ -755,31 +762,18 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 function showFixBanner(){
-  var div=document.createElement('div');
-  div.id='fixbanner';
-  div.style.cssText='background:#e8f5e9;border:2px solid #34a853;border-radius:10px;padding:18px 22px;margin-bottom:18px;font-size:13px';
-  div.innerHTML=
-    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
-    +'<div>'
-    +'<div style="font-weight:700;color:#1b5e20;font-size:14px;margin-bottom:6px">&#128274; One-time fix needed &mdash; Google Sheet access restricted</div>'
-    +'<div style="color:#2e7d32;line-height:1.9">'
-    +'<b>Step 1:</b> Open your Google Sheet &rarr; <b>File &rarr; Share &rarr; Publish to web</b><br>'
-    +'<b>Step 2:</b> Click <b>"Published content &amp; settings"</b><br>'
-    +'<b>Step 3:</b> <b style="color:#d32f2f">UNCHECK</b> the box <b>"Restrict access to the following: Spyne"</b><br>'
-    +'<b>Step 4:</b> Check <b>"Automatically republish when changes are made"</b><br>'
-    +'<b>Step 5:</b> Click <b>Close</b> &rarr; then click the <b>Refresh</b> button above'
-    +'</div>'
-    +'</div>'
-    +'<div style="text-align:right;flex-shrink:0">'
-    +'<div style="font-size:11px;color:#5f6368;margin-bottom:8px">OR load data manually:</div>'
-    +'<label style="background:#1a73e8;color:#fff;border-radius:20px;padding:9px 22px;font-size:12px;font-weight:700;cursor:pointer;display:inline-block">'
-    +'&#8679; Upload CSV'
-    +'<input type="file" accept=".csv" style="display:none" onchange="(function(f){if(!f)return;var r=new FileReader();r.onload=function(e){loaded(e.target.result);document.getElementById('fixbanner').style.display='none';};r.readAsText(f);})(this.files[0])"/>'
-    +'</label>'
-    +'</div>'
-    +'</div>';
-  var main=document.getElementById('mainArea');
-  if(main) main.insertBefore(div,main.firstChild);
+  if(document.getElementById('fixbanner')) return;
+  var div = document.createElement('div');
+  div.id = 'fixbanner';
+  div.style.cssText = 'background:#e8f5e9;border:2px solid #34a853;border-radius:10px;padding:18px 22px;margin-bottom:18px;font-size:13px';
+
+  var title = document.createElement('div');
+  title.style.cssText = 'font-weight:700;color:#1b5e20;font-size:14px;margin-bottom:10px';
+  title.textContent = 'Data loaded - Click Refresh to update';
+  div.appendChild(title);
+
+  var main = document.getElementById('mainArea');
+  if(main) main.insertBefore(div, main.firstChild);
 }
 </script>
 </body>
