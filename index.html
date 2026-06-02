@@ -298,7 +298,7 @@ function parseCSV(text){
     if(!lines[i].trim())continue;
     var c=splitLine(lines[i]);
     var dr=parseDate(c[DC]||'');if(!dr)continue;
-    RAW.push({date:dr,img:parseInt((c[IC]||'0').replace(/[^0-9]/g,''))||0,tp:(c[TC]||'').trim(),at:(c[AC]||'').trim().toUpperCase(),per:(c[PC]||'').trim(),dms:(c[EC]||'').trim(),acc:(c[NC]||'').trim(),seg:(c[SC]||'').trim()||'N/A',flow:(c[FC]||'').trim()||'N/A',eid:(c[EIDC]||'').trim(),tid:(c[TIDC]||'').trim()});
+    RAW.push({date:dr,img:parseInt((c[IC]||'0').replace(/[^0-9]/g,''))||0,tp:(c[TC]||'').trim(),at:(c[AC]||'').trim().toUpperCase(),per:(c[PC]||'').trim(),dms:(c[EC]||'').trim(),acc:(function(s){return s.trim().toLowerCase().replace(/\b\w/g,function(l){return l.toUpperCase();});})(c[NC]||''),seg:(c[SC]||'').trim()||'N/A',flow:(c[FC]||'').trim()||'N/A',eid:(c[EIDC]||'').trim(),tid:(c[TIDC]||'').trim()});
   }
   // Build daily aggregates
   var dm={};
@@ -495,11 +495,18 @@ function rFlow(rows){
     fm[r.flow].vins++;
     fm[r.flow].images+=r.img;
     if(r.tp==='Live')fm[r.flow].live++;
-    if(r.acc)fm[r.flow].accounts[r.acc.trim()]=1;
+    if(r.acc){
+      var ak=r.acc.trim().toLowerCase();
+      if(!fm[r.flow].accounts[ak]){
+        // Title Case: capitalize first letter of each word
+        var tc=r.acc.trim().toLowerCase().replace(/\b\w/g,function(l){return l.toUpperCase();});
+        fm[r.flow].accounts[ak]=tc;
+      }
+    }
   });
 
   var data=Object.entries(fm).map(function(e){
-    return {name:e[0],vins:e[1].vins,live:e[1].live,images:e[1].images,accounts:(function(a){var seen={};return a.filter(function(x){var k=x.toLowerCase();if(seen[k])return false;seen[k]=true;return true;});})(Object.keys(e[1].accounts).sort())};
+    return {name:e[0],vins:e[1].vins,live:e[1].live,images:e[1].images,accounts:Object.values(e[1].accounts).sort()};
   }).sort(function(a,b){return b.vins-a.vins;});
 
   var cont=document.getElementById('flowbars');
