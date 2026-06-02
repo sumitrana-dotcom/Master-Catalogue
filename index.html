@@ -291,12 +291,14 @@ function parseCSV(text){
   var IC=findCol(hdr,['image count','image cnt'],8),TC=findCol(hdr,['type'],9);
   var SC=findCol(hdr,['customer_segment','customer segment'],11);
   var FC=findCol(hdr,['flow'],12);
+  var EIDC=findCol(hdr,['enterprise id','enterprise'],1);
+  var TIDC=findCol(hdr,['team id','team'],2);
   RAW=[];
   for(var i=1;i<lines.length;i++){
     if(!lines[i].trim())continue;
     var c=splitLine(lines[i]);
     var dr=parseDate(c[DC]||'');if(!dr)continue;
-    RAW.push({date:dr,img:parseInt((c[IC]||'0').replace(/[^0-9]/g,''))||0,tp:(c[TC]||'').trim(),at:(c[AC]||'').trim().toUpperCase(),per:(c[PC]||'').trim(),dms:(c[EC]||'').trim(),acc:(c[NC]||'').trim(),seg:(c[SC]||'').trim()||'N/A',flow:(c[FC]||'').trim()||'N/A'});
+    RAW.push({date:dr,img:parseInt((c[IC]||'0').replace(/[^0-9]/g,''))||0,tp:(c[TC]||'').trim(),at:(c[AC]||'').trim().toUpperCase(),per:(c[PC]||'').trim(),dms:(c[EC]||'').trim(),acc:(c[NC]||'').trim(),seg:(c[SC]||'').trim()||'N/A',flow:(c[FC]||'').trim()||'N/A',eid:(c[EIDC]||'').trim(),tid:(c[TIDC]||'').trim()});
   }
   // Build daily aggregates
   var dm={};
@@ -489,13 +491,23 @@ function rFlow(rows){
   var fm={};
   rows.forEach(function(r){
     if(!r.flow||r.flow==='N/A')return;
-    if(!fm[r.flow])fm[r.flow]={vins:0,live:0,images:0};
+    if(!fm[r.flow])fm[r.flow]={vins:0,live:0,images:0,enterprises:{},teams:{}};
     fm[r.flow].vins++;
     fm[r.flow].images+=r.img;
     if(r.tp==='Live')fm[r.flow].live++;
+    if(r.eid)fm[r.flow].enterprises[r.eid]=1;
+    if(r.tid)fm[r.flow].teams[r.tid]=1;
   });
+
   var data=Object.entries(fm).map(function(e){
-    return {name:e[0],vins:e[1].vins,live:e[1].live,images:e[1].images};
+    return {
+      name:e[0],
+      vins:e[1].vins,
+      live:e[1].live,
+      images:e[1].images,
+      enterprises:Object.keys(e[1].enterprises),
+      teams:Object.keys(e[1].teams)
+    };
   }).sort(function(a,b){return b.vins-a.vins;});
 
   var cont=document.getElementById('flowbars');
@@ -503,57 +515,101 @@ function rFlow(rows){
 
   var total=data.reduce(function(s,d){return s+d.vins;},0);
   var maxV=data[0].vins;
-  var colors=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#e8453c','#0f9d58','#f29900','#673ab7'];
+  var colors=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf'];
 
-  document.getElementById('flowsub').textContent='Col M: flow | '+data.length+' types | '+total.toLocaleString()+' VINs';
+  document.getElementById('flowsub').textContent='Col M: flow | '+data.length+' flow types | '+total.toLocaleString()+' VINs';
 
-  // Grid layout for flow bars
-  var grid=document.createElement('div');
-  grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:6px 36px';
+  cont.innerHTML='';
 
   data.forEach(function(d,i){
     var livePct=d.vins>0?((d.live/d.vins)*100).toFixed(1):'0';
     var sharePct=total>0?((d.vins/total)*100).toFixed(1):'0';
+    var col=colors[i%colors.length];
 
-    var row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:8px;cursor:pointer;border-radius:6px;padding:3px 2px;transition:background .15s';
-    row.addEventListener('mouseenter',function(){this.style.background='#f8f9fa';});
-    row.addEventListener('mouseleave',function(){this.style.background='';});
-    row.addEventListener('click',(function(d,col){return function(){
-      openM('Flow: '+d.name,
-        '<table>'
-        +mRow('Flow',d.name,col)
-        +mRow('Total VINs',fmtF(d.vins))
-        +mRow('Live VINs',fmtF(d.live)+' ('+livePct+'%)','#34a853')
-        +mRow('Images',fmtF(d.images))
-        +mRow('Share of Total',sharePct+'%')
-        +'</table>'
-      );
-    };})(d,colors[i%colors.length]));
+    // Main card
+    var card=document.createElement('div');
+    card.style.cssText='border:1px solid #e8eaed;border-radius:8px;padding:14px 18px;margin-bottom:12px;cursor:pointer;transition:box-shadow .15s';
+    card.addEventListener('mouseenter',function(){this.style.boxShadow='0 2px 8px rgba(0,0,0,.1)';});
+    card.addEventListener('mouseleave',function(){this.style.boxShadow='';});
 
-    var nm=document.createElement('div');
-    nm.style.cssText='font-size:11px;font-weight:600;width:120px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-    nm.textContent=d.name;
+    // Header row
+    var hdr2=document.createElement('div');
+    hdr2.style.cssText='display:flex;align-items:center;gap:12px;margin-bottom:10px';
 
+    var badge=document.createElement('div');
+    badge.style.cssText='background:'+col+';color:#fff;border-radius:20px;padding:4px 14px;font-size:13px;font-weight:700;flex-shrink:0';
+    badge.textContent='Flow: '+d.name;
+
+    var stats=document.createElement('div');
+    stats.style.cssText='display:flex;gap:16px;flex-wrap:wrap;flex:1';
+    stats.innerHTML=
+      '<span style="font-size:12px"><b style="color:'+col+'">'+fmtF(d.vins)+'</b> <span style="color:#9aa0a6">VINs</span></span>'
+      +'<span style="font-size:12px"><b style="color:#34a853">'+fmtF(d.live)+'</b> <span style="color:#9aa0a6">Live ('+livePct+'%)</span></span>'
+      +'<span style="font-size:12px"><b style="color:#1a73e8">'+d.enterprises.length+'</b> <span style="color:#9aa0a6">Enterprises</span></span>'
+      +'<span style="font-size:12px"><b style="color:#9334e6">'+d.teams.length+'</b> <span style="color:#9aa0a6">Teams</span></span>'
+      +'<span style="font-size:12px"><b style="color:#5f6368">'+sharePct+'%</b> <span style="color:#9aa0a6">share</span></span>';
+
+    hdr2.appendChild(badge);
+    hdr2.appendChild(stats);
+    card.appendChild(hdr2);
+
+    // Progress bar
     var barBg=document.createElement('div');
-    barBg.style.cssText='flex:1;height:10px;background:#f1f3f4;border-radius:5px;overflow:hidden';
+    barBg.style.cssText='height:8px;background:#f1f3f4;border-radius:4px;overflow:hidden;margin-bottom:12px';
     var barFill=document.createElement('div');
-    barFill.style.cssText='height:100%;border-radius:5px;background:'+colors[i%colors.length]+';width:'+((d.vins/maxV)*100).toFixed(1)+'%;transition:width .5s';
+    barFill.style.cssText='height:100%;border-radius:4px;background:'+col+';width:'+((d.vins/maxV)*100).toFixed(1)+'%;transition:width .5s';
     barBg.appendChild(barFill);
+    card.appendChild(barBg);
 
-    var valEl=document.createElement('div');
-    valEl.style.cssText='font-size:11px;font-weight:700;color:#202124;width:46px;text-align:right;flex-shrink:0';
-    valEl.textContent=fmt(d.vins);
+    // Enterprise IDs
+    var eSection=document.createElement('div');
+    eSection.style.cssText='margin-bottom:8px';
+    var eLabel=document.createElement('div');
+    eLabel.style.cssText='font-size:10px;font-weight:700;color:#5f6368;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px';
+    eLabel.textContent='Enterprise IDs ('+d.enterprises.length+')';
+    eSection.appendChild(eLabel);
+    var eTags=document.createElement('div');
+    eTags.style.cssText='display:flex;flex-wrap:wrap;gap:5px';
+    d.enterprises.slice(0,20).forEach(function(eid){
+      var tag=document.createElement('span');
+      tag.style.cssText='background:#e8f0fe;color:#1a73e8;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:600;font-family:monospace';
+      tag.textContent=eid;
+      eTags.appendChild(tag);
+    });
+    if(d.enterprises.length>20){
+      var more=document.createElement('span');
+      more.style.cssText='color:#9aa0a6;font-size:10px;padding:2px 4px';
+      more.textContent='+'+(d.enterprises.length-20)+' more';
+      eTags.appendChild(more);
+    }
+    eSection.appendChild(eTags);
+    card.appendChild(eSection);
 
-    var pctEl=document.createElement('div');
-    pctEl.style.cssText='font-size:10px;color:#5f6368;width:36px;text-align:right;flex-shrink:0';
-    pctEl.textContent=sharePct+'%';
+    // Team IDs
+    var tSection=document.createElement('div');
+    var tLabel=document.createElement('div');
+    tLabel.style.cssText='font-size:10px;font-weight:700;color:#5f6368;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px';
+    tLabel.textContent='Team IDs ('+d.teams.length+')';
+    tSection.appendChild(tLabel);
+    var tTags=document.createElement('div');
+    tTags.style.cssText='display:flex;flex-wrap:wrap;gap:5px';
+    d.teams.slice(0,20).forEach(function(tid){
+      var tag=document.createElement('span');
+      tag.style.cssText='background:#f3e8fd;color:#9334e6;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:600;font-family:monospace';
+      tag.textContent=tid;
+      tTags.appendChild(tag);
+    });
+    if(d.teams.length>20){
+      var more2=document.createElement('span');
+      more2.style.cssText='color:#9aa0a6;font-size:10px;padding:2px 4px';
+      more2.textContent='+'+(d.teams.length-20)+' more';
+      tTags.appendChild(more2);
+    }
+    tSection.appendChild(tTags);
+    card.appendChild(tSection);
 
-    row.appendChild(nm);row.appendChild(barBg);row.appendChild(valEl);row.appendChild(pctEl);
-    grid.appendChild(row);
+    cont.appendChild(card);
   });
-  cont.innerHTML='';
-  cont.appendChild(grid);
 }
 
 // Render all
