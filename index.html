@@ -495,11 +495,11 @@ function rFlow(rows){
     fm[r.flow].vins++;
     fm[r.flow].images+=r.img;
     if(r.tp==='Live')fm[r.flow].live++;
-    if(r.acc)fm[r.flow].accounts[r.acc]=1;
+    if(r.acc)fm[r.flow].accounts[r.acc.trim()]=1;
   });
 
   var data=Object.entries(fm).map(function(e){
-    return {name:e[0],vins:e[1].vins,live:e[1].live,images:e[1].images,accounts:Object.keys(e[1].accounts).sort()};
+    return {name:e[0],vins:e[1].vins,live:e[1].live,images:e[1].images,accounts:(function(a){var seen={};return a.filter(function(x){var k=x.toLowerCase();if(seen[k])return false;seen[k]=true;return true;});})(Object.keys(e[1].accounts).sort())};
   }).sort(function(a,b){return b.vins-a.vins;});
 
   var cont=document.getElementById('flowbars');
