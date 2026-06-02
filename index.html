@@ -558,7 +558,7 @@ function rDonut(rows){
 function rLine(){
   if(!MONTHLY.length)return;
   var svg=document.getElementById('lsvg');
-  var W=svg.clientWidth||600, H=240, pad={t:24,r:24,b:30,l:52};
+  var W=svg.clientWidth||700, H=280, pad={t:20,r:28,b:30,l:52};
   var cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
   svg.setAttribute('viewBox','0 0 '+W+' '+H);
 
@@ -570,54 +570,67 @@ function rLine(){
     {key:'dms_dl',     c:'#f29900', l:'DMS DL'}
   ];
 
-  var maxV=Math.max.apply(null,MONTHLY.map(function(m){return m.vins;}));
-  var n=MONTHLY.length;
-  function x(i){return pad.l+(n>1?i/(n-1):0.5)*cW;}
-  function y(v){return pad.t+(1-v/maxV)*cH;}
+  // Use separate max for top line vs bottom cluster for better scaling
+  var maxV = Math.max.apply(null, MONTHLY.map(function(m){ return m.vins; }));
+  var n = MONTHLY.length;
+  function x(i){ return pad.l + (n>1 ? i/(n-1) : 0.5) * cW; }
+  function y(v){ return pad.t + (1 - v/maxV) * cH; }
 
-  var html='';
+  var html = '';
 
   // Grid lines
   for(var g=0;g<=4;g++){
-    var yg=pad.t+(g/4)*cH;
-    html+='<line x1="'+pad.l+'" y1="'+yg+'" x2="'+(pad.l+cW)+'" y2="'+yg+'" stroke="#e8eaed" stroke-width="1"/>';
-    html+='<text x="'+(pad.l-5)+'" y="'+(yg+4)+'" text-anchor="end" font-size="9" fill="#9aa0a6">'+fmt(Math.round(maxV*(1-g/4)))+'</text>';
+    var yg = pad.t + (g/4)*cH;
+    html += '<line x1="'+pad.l+'" y1="'+yg+'" x2="'+(pad.l+cW)+'" y2="'+yg+'" stroke="#e8eaed" stroke-width="1"/>';
+    html += '<text x="'+(pad.l-5)+'" y="'+(yg+4)+'" text-anchor="end" font-size="9" fill="#9aa0a6">'+fmt(Math.round(maxV*(1-g/4)))+'</text>';
   }
 
   // X labels
   MONTHLY.forEach(function(m,i){
-    html+='<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9" fill="#9aa0a6">'+m.m+'</text>';
+    html += '<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9" fill="#9aa0a6">'+m.m+'</text>';
   });
 
-  // Draw lines first (behind dots)
+  // Draw all lines
   series.forEach(function(s){
-    html+='<polyline points="'+MONTHLY.map(function(m,i){return x(i)+','+y(m[s.key]);}).join(' ')+'" fill="none" stroke="'+s.c+'" stroke-width="2" stroke-linejoin="round"/>';
+    html += '<polyline points="'+MONTHLY.map(function(m,i){ return x(i)+','+y(m[s.key]); }).join(' ')+'" fill="none" stroke="'+s.c+'" stroke-width="2" stroke-linejoin="round"/>';
   });
 
-  // Draw labels + dots for ALL series
-  // To avoid overlap, offset labels alternately above/below
-  var labelOffsets = [-11, 11, -11, 11, -11]; // above/below alternating per series
-
+  // Draw dots + labels
+  // Label placement: for each point, put label directly above with fixed per-series offset
+  // Series 0 (vins): label 12px above dot
+  // Series 1-4 (clustered): alternate above/below + small horizontal bg rect for readability
   series.forEach(function(s, si){
     MONTHLY.forEach(function(m, i){
-      var cx = x(i), cy = y(m[s.key]);
-      var val = m[s.key];
-      var offset = labelOffsets[si];
+      var cx = x(i);
+      var cy = y(m[s.key]);
+      var val = fmt(m[s.key]);
 
-      // Label
-      html += '<text x="'+cx+'" y="'+(cy+offset)+'" text-anchor="middle" font-size="7.5" fill="'+s.c+'" font-weight="700">'
-            + fmt(val)
-            + '</text>';
+      // Label Y: alternate above and below for bottom 4 series to reduce overlap
+      var labelY;
+      if(si === 0){
+        labelY = cy - 10;
+      } else {
+        // Spread: si=1 above, si=2 above+more, si=3 below, si=4 below+more
+        var offsets = [0, -10, -20, 10, 20];
+        labelY = cy + offsets[si];
+      }
 
-      // Dot
-      html += '<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+s.c+'" stroke="#fff" stroke-width="1.5"'
-            + ' style="cursor:pointer" data-mi="'+i+'" data-si="'+si+'"/>';
+      // Clamp to chart
+      if(labelY < pad.t + 7) labelY = pad.t + 7;
+      if(labelY > H - pad.b - 5) labelY = H - pad.b - 5;
+
+      // Small white background behind label for readability
+      var tw = val.length * 5;
+      html += '<rect x="'+(cx-tw/2-1)+'" y="'+(labelY-7)+'" width="'+(tw+2)+'" height="9" fill="white" fill-opacity="0.75" rx="1"/>';
+      html += '<text x="'+cx+'" y="'+labelY+'" text-anchor="middle" font-size="7.5" fill="'+s.c+'" font-weight="700">'+val+'</text>';
+
+      // Dot on top
+      html += '<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+s.c+'" stroke="#fff" stroke-width="1.5" style="cursor:pointer" data-mi="'+i+'" data-si="'+si+'"/>';
     });
   });
 
   svg.innerHTML = html;
 
-  // Legend
   document.getElementById('lleg').innerHTML = series.map(function(s){
     return '<div class="li"><div class="ld" style="background:'+s.c+'"></div>'+s.l+'</div>';
   }).join('');
@@ -625,7 +638,6 @@ function rLine(){
   if(MONTHLY.length)
     document.getElementById('mrange').textContent = MONTHLY[0].m+' - '+MONTHLY[MONTHLY.length-1].m;
 
-  // Attach hover + click to dots
   svg.querySelectorAll('circle').forEach(function(el){
     var mi=parseInt(el.getAttribute('data-mi'));
     var si=parseInt(el.getAttribute('data-si'));
@@ -638,11 +650,11 @@ function rLine(){
     el.addEventListener('click',function(){
       openM(m.m+' Monthly',
         '<table>'
-        +mRow('Total VINs', fmtF(m.vins),        '#4285f4')
-        +mRow('Live',        fmtF(m.live)+' ('+pct(m.live,m.vins)+')',               '#34a853')
-        +mRow('Console DL',  fmtF(m.console_dl)+' ('+pct(m.console_dl,m.vins)+')',  '#1a73e8')
-        +mRow('Console UL',  fmtF(m.console_ul)+' ('+pct(m.console_ul,m.vins)+')',  '#9334e6')
-        +mRow('DMS DL',      fmtF(m.dms_dl)+' ('+pct(m.dms_dl,m.vins)+')',          '#f29900')
+        +mRow('Total VINs', fmtF(m.vins),       '#4285f4')
+        +mRow('Live',       fmtF(m.live)+' ('+pct(m.live,m.vins)+')',              '#34a853')
+        +mRow('Console DL', fmtF(m.console_dl)+' ('+pct(m.console_dl,m.vins)+')', '#1a73e8')
+        +mRow('Console UL', fmtF(m.console_ul)+' ('+pct(m.console_ul,m.vins)+')', '#9334e6')
+        +mRow('DMS DL',     fmtF(m.dms_dl)+' ('+pct(m.dms_dl,m.vins)+')',         '#f29900')
         +'</table>'
       );
     });
