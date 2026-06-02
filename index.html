@@ -802,10 +802,10 @@ function rDMS(rows){
     else if(r.tp==='Console Upload')dm[r.dms].cul++;
     else if(r.tp==='DMS Download')dm[r.dms].dms++;
     else if(r.tp==='Pending')dm[r.dms].pending++;
-    if(r.acc){var ak=r.acc.toLowerCase();if(!dm[r.dms].rooftops[ak])dm[r.dms].rooftops[ak]=r.acc;}
+    if(r.acc){var ak=r.acc.toLowerCase();if(!dm[r.dms].rooftops[ak])dm[r.dms].rooftops[ak]={name:r.acc,vins:0};dm[r.dms].rooftops[ak].vins++;}
   });
   var data=Object.entries(dm).map(function(e){
-    return {name:e[0],vins:e[1].vins,live:e[1].live,cdl:e[1].cdl,cul:e[1].cul,dms:e[1].dms,pending:e[1].pending,images:e[1].images,rooftops:Object.values(e[1].rooftops).sort()};
+    return {name:e[0],vins:e[1].vins,live:e[1].live,cdl:e[1].cdl,cul:e[1].cul,dms:e[1].dms,pending:e[1].pending,images:e[1].images,rooftops:Object.values(e[1].rooftops).sort(function(a,b){return b.vins-a.vins;})};
   }).sort(function(a,b){return b.vins-a.vins;}).slice(0,12);
 
   var cont=document.getElementById('dbars');cont.innerHTML='';
@@ -861,9 +861,12 @@ function rDMS(rows){
     rt.textContent='RT:'+d.rooftops.length;
     rt.addEventListener('click',(function(d){return function(e){
       e.stopPropagation();
-      var rows=d.rooftops.map(function(acc,idx){
+      var rows=d.rooftops.map(function(rf,idx){
+        var name=typeof rf==='object'?rf.name:rf;
+        var vins=typeof rf==='object'?rf.vins:'-';
         return '<tr><td style="padding:6px 10px;color:#9aa0a6;font-size:11px">'+(idx+1)+'</td>'
-          +'<td style="padding:6px 10px;font-weight:500;font-size:12px">'+acc+'</td></tr>';
+          +'<td style="padding:6px 10px;font-weight:500;font-size:12px">'+name+'</td>'
+          +'<td style="padding:6px 10px;font-weight:700;color:#1a73e8;font-size:12px;text-align:right">'+fmtF(vins)+'</td></tr>';
       }).join('');
       openM('DMS: '+d.name+' - Rooftops ('+d.rooftops.length+')',
         '<div style="font-size:11px;color:#5f6368;margin-bottom:10px">'+fmtF(d.live)+' Live VINs across '+d.rooftops.length+' unique accounts</div>'
@@ -872,6 +875,7 @@ function rDMS(rows){
         +'<thead><tr>'
         +'<th style="background:#f8f9fa;padding:6px 10px;font-size:10px;text-align:left;color:#5f6368;position:sticky;top:0">#</th>'
         +'<th style="background:#f8f9fa;padding:6px 10px;font-size:10px;text-align:left;color:#5f6368;position:sticky;top:0">Account Name</th>'
+        +'<th style="background:#f8f9fa;padding:6px 10px;font-size:10px;text-align:right;color:#5f6368;position:sticky;top:0">VINs</th>'
         +'</tr></thead>'
         +'<tbody>'+rows+'</tbody></table></div>'
       );
