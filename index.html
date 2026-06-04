@@ -487,21 +487,24 @@ function onPer(){var p=document.getElementById('fPer').value;document.getElement
 function resetF(){['fPer','fPer2','fTyp','fAcc','fDMS'].forEach(function(id){document.getElementById(id).value=id==='fPer'?'30':'';});document.getElementById('fFr').style.display='none';document.getElementById('fTo').style.display='none';go();}
 
 // Flow chart
-function rFlow(rows){
+function rFlow(rows,allRows){
   var fm={};
+  // VIN counts from filtered rows
   rows.forEach(function(r){
     if(!r.flow||r.flow==='N/A')return;
     if(!fm[r.flow])fm[r.flow]={vins:0,live:0,images:0,accounts:{}};
     fm[r.flow].vins++;
     fm[r.flow].images+=r.img;
     if(r.tp==='Live')fm[r.flow].live++;
+  });
+  // Account counts from ALL rows (not filtered) for accurate rooftop total
+  var allRowsSrc = allRows && allRows.length ? allRows : rows;
+  allRowsSrc.forEach(function(r){
+    if(!r.flow||r.flow==='N/A')return;
+    if(!fm[r.flow])fm[r.flow]={vins:0,live:0,images:0,accounts:{}};
     if(r.acc){
       var ak=r.acc.trim().toLowerCase();
-      if(!fm[r.flow].accounts[ak]){
-        // Title Case: capitalize first letter of each word
-        var tc=r.acc.trim().toLowerCase().replace(/\b\w/g,function(l){return l.toUpperCase();});
-        fm[r.flow].accounts[ak]=tc;
-      }
+      if(!fm[r.flow].accounts[ak])fm[r.flow].accounts[ak]=r.acc;
     }
   });
 
@@ -599,7 +602,7 @@ function rFlow(rows){
 function go(){
   if(!RAW.length)return;
   var d=getF();
-  rScores(d);rBar(d);rDonut(d._rows||[]);rLine();rTypes(d);rDMS(d._rows||[]);rTeam(d._rows||[]);rAcc(d._rows||[]);rFlow(d._rows||[]);renderTable();
+  rScores(d);rBar(d);rDonut(d._rows||[]);rLine();rTypes(d);rDMS(d._rows||[]);rTeam(d._rows||[]);rAcc(d._rows||[]);rFlow(d._rows||[],RAW);renderTable();
 }
 
 // Scores
