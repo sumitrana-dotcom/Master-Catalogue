@@ -250,6 +250,9 @@ var RAW=[],DAILY=[],MONTHLY=[],SS={col:'date',dir:-1};
 var PAL=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#00897b','#8d6e63'];
 var COLS=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#e8453c','#0f9d58','#f29900','#673ab7'];
 var SHEET='https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
+// Master tab - account master list with ARR column
+var MASTER_SHEET='https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=0&single=true&output=csv';
+var MASTER_DATA=[]; // [{name,eid,tid,type,source,flow,arr}]
 
 // Clock
 setInterval(function(){var n=new Date();document.getElementById('clk').textContent=n.toLocaleTimeString('en-IN',{hour12:false});document.getElementById('ftime').textContent='Updated: '+n.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});},1000);
@@ -419,11 +422,64 @@ function tryProxies(PUB, GVIZ, ts){
 }
 
 
+function fetchMasterTab(){
+  var proxies=[
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(MASTER_SHEET+'&t='+Date.now()),
+    'https://corsproxy.io/?'+encodeURIComponent(MASTER_SHEET+'&t='+Date.now())
+  ];
+  var i=0;
+  function next(){
+    if(i>=proxies.length){console.log('Master tab fetch failed');return;}
+    var url=proxies[i++];
+    var fp=fetch(url,{cache:'no-cache'}).then(function(r){if(!r.ok)throw new Error();return r.text();});
+    var tp=new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},10000);});
+    Promise.race([fp,tp]).then(function(txt){
+      if(!txt||txt.length<100)throw new Error('short');
+      parseMasterTab(txt);
+    }).catch(function(){next();});
+  }
+  next();
+}
+
+function parseMasterTab(text){
+  var lines=text.trim().split(/
+?
+/);
+  if(lines.length<2)return;
+  var hdr=splitLine(lines[0]);
+  // Find columns: Enterprise Name(A=0), Enterprise ID(B=1), Team ID(C=2), Account sub type(D=3), Input Source(E=4), flow is not in master - ARR is L=11
+  var NC2=findCol(hdr,['enterprise name'],0);
+  var EC2=findCol(hdr,['enterprise id'],1);
+  var TC2=findCol(hdr,['team id'],2);
+  var AC2=findCol(hdr,['account sub type'],3);
+  var SC2=findCol(hdr,['input source'],4);
+  var AR2=findCol(hdr,['arr','client delivery'],11);
+  MASTER_DATA=[];
+  for(var i=1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    var cols=splitLine(lines[i]);
+    var name=(cols[NC2]||'').trim();
+    if(!name)continue;
+    MASTER_DATA.push({
+      name:name,
+      eid:(cols[EC2]||'').trim(),
+      tid:(cols[TC2]||'').trim(),
+      type:(cols[AC2]||'').trim(),
+      source:(cols[SC2]||'').trim(),
+      arr:(cols[AR2]||'').trim()
+    });
+  }
+  console.log('[Master] Loaded '+MASTER_DATA.length+' accounts');
+  // Re-render flow section if data already loaded
+  if(RAW.length>0) go();
+}
+
 function loaded(text){
   parseCSV(text);
   setStatus('ok','Live '+RAW.length.toLocaleString()+' VINs');
   populateDD();
   go();
+  fetchMasterTab(); // also fetch master account list
   var b1=document.getElementById('upbanner');if(b1)b1.style.display='none';
   var b2=document.getElementById('fixbanner');if(b2)b2.style.display='none';
 }
@@ -492,11 +548,11 @@ function rFlow(rows, allRows){
   var TARGET_FLOWS = ['100','50'];
   var fm = {};
 
-  // VIN counts from filtered rows
+  // VIN counts + DMS from filtered rows
   rows.forEach(function(r){
     var f = (r.flow||'').trim();
     if(TARGET_FLOWS.indexOf(f) === -1) return;
-    if(!fm[f]) fm[f] = {vins:0, live:0, cdl:0, cul:0, dms_dl:0, pending:0, images:0, accounts:{}, dmsMap:{}};
+    if(!fm[f]) fm[f] = {vins:0,live:0,cdl:0,cul:0,dms_dl:0,pending:0,images:0,dmsMap:{},accounts:{}};
     fm[f].vins++;
     fm[f].images += r.img;
     if(r.tp==='Live') fm[f].live++;
@@ -508,40 +564,63 @@ function rFlow(rows, allRows){
       if(!fm[f].dmsMap[r.dms]) fm[f].dmsMap[r.dms] = 0;
       fm[f].dmsMap[r.dms]++;
     }
-  });
-
-  // Account counts from ALL rows
-  var allSrc = allRows && allRows.length ? allRows : rows;
-  allSrc.forEach(function(r){
-    var f = (r.flow||'').trim();
-    if(TARGET_FLOWS.indexOf(f) === -1) return;
-    if(!fm[f]) fm[f] = {vins:0, live:0, cdl:0, cul:0, dms_dl:0, pending:0, images:0, accounts:{}, dmsMap:{}};
+    // Account from filtered rows
     if(r.acc){
-      var ak = r.acc.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+      var ak = r.acc.toLowerCase().replace(/[^a-z0-9]/g,'');
       if(!fm[f].accounts[ak]) fm[f].accounts[ak] = {name:r.acc, vins:0};
       fm[f].accounts[ak].vins++;
     }
   });
 
+  // If MASTER_DATA is loaded, use it for account counts per flow
+  // Master tab has all accounts - use VIN data to determine which flow each account belongs to
+  var useAllSrc = allRows && allRows.length ? allRows : rows;
+  if(MASTER_DATA.length > 0){
+    // Build flow->accounts map from ALL vin rows
+    var flowAccMap = {};
+    useAllSrc.forEach(function(r){
+      var f = (r.flow||'').trim();
+      if(TARGET_FLOWS.indexOf(f) === -1) return;
+      if(!flowAccMap[f]) flowAccMap[f] = {};
+      if(r.acc){
+        var ak = r.acc.toLowerCase().replace(/[^a-z0-9]/g,'');
+        flowAccMap[f][ak] = r.acc;
+      }
+    });
+    // Override account counts with master-verified unique accounts
+    TARGET_FLOWS.forEach(function(f){
+      if(!fm[f]) fm[f] = {vins:0,live:0,cdl:0,cul:0,dms_dl:0,pending:0,images:0,dmsMap:{},accounts:{}};
+      if(flowAccMap[f]){
+        fm[f].accounts = {};
+        Object.keys(flowAccMap[f]).forEach(function(ak){
+          fm[f].accounts[ak] = {name:flowAccMap[f][ak], vins:0};
+        });
+        // Add vins per account
+        useAllSrc.forEach(function(r){
+          var f2=(r.flow||'').trim();
+          if(f2!==f||!r.acc)return;
+          var ak=r.acc.toLowerCase().replace(/[^a-z0-9]/g,'');
+          if(fm[f].accounts[ak]) fm[f].accounts[ak].vins++;
+        });
+      }
+    });
+  }
+
   var cont = document.getElementById('flowbars');
   cont.innerHTML = '';
-
   var colors = {'100':'#4285f4', '50':'#34a853'};
 
   TARGET_FLOWS.forEach(function(flowKey){
-    var d = fm[flowKey];
-    if(!d){ d = {vins:0,live:0,cdl:0,cul:0,dms_dl:0,pending:0,images:0,accounts:{},dmsMap:{}}; }
-
-    var col = colors[flowKey] || '#9334e6';
+    var d = fm[flowKey] || {vins:0,live:0,images:0,accounts:{},dmsMap:{}};
+    var col = colors[flowKey];
     var accs = Object.values(d.accounts).sort(function(a,b){return b.vins-a.vins;});
     var dmsEntries = Object.entries(d.dmsMap).sort(function(a,b){return b[1]-a[1];});
     var livePct = d.vins>0 ? ((d.live/d.vins)*100).toFixed(1) : '0';
-    var total = d.vins;
 
     var card = document.createElement('div');
     card.style.cssText = 'border:1px solid #e8eaed;border-radius:10px;padding:20px;margin-bottom:16px;background:#fff';
 
-    // Header
+    // Badge
     var hdrDiv = document.createElement('div');
     hdrDiv.style.cssText = 'display:flex;align-items:center;gap:12px;margin-bottom:16px';
     var badge = document.createElement('div');
@@ -550,16 +629,15 @@ function rFlow(rows, allRows){
     hdrDiv.appendChild(badge);
     card.appendChild(hdrDiv);
 
-    // Stats grid
+    // 4 stat boxes
     var statsGrid = document.createElement('div');
     statsGrid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px';
-    var statItems = [
-      {label:'Total VINs Attempted', val:fmtF(total), color:col},
+    [
+      {label:'Total VINs Attempted', val:fmtF(d.vins), color:col},
       {label:'Live VINs', val:fmtF(d.live)+' ('+livePct+'%)', color:'#34a853'},
       {label:'Total Accounts', val:fmtF(accs.length), color:'#1a73e8'},
       {label:'Total DMS', val:fmtF(dmsEntries.length), color:'#9334e6'}
-    ];
-    statItems.forEach(function(s){
+    ].forEach(function(s){
       var box = document.createElement('div');
       box.style.cssText = 'background:#f8f9fa;border-radius:8px;padding:12px 14px;text-align:center';
       box.innerHTML = '<div style="font-size:10px;color:#9aa0a6;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">'+s.label+'</div>'
@@ -576,7 +654,7 @@ function rFlow(rows, allRows){
     barBg.appendChild(barFill);
     card.appendChild(barBg);
 
-    // Two dropdowns side by side
+    // Dropdowns
     var dropsRow = document.createElement('div');
     dropsRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px';
 
@@ -589,9 +667,9 @@ function rFlow(rows, allRows){
     accDiv.appendChild(accLabel);
     var accSel = document.createElement('select');
     accSel.style.cssText = 'width:100%;border:1px solid #dadce0;border-radius:6px;padding:6px 10px;font-size:12px;color:#202124;background:#fff;outline:none;cursor:pointer';
-    var accOpt0 = document.createElement('option');
-    accOpt0.textContent = '-- Select Account --';
-    accSel.appendChild(accOpt0);
+    var o0 = document.createElement('option');
+    o0.textContent = '-- Select Account --';
+    accSel.appendChild(o0);
     accs.forEach(function(a){
       var opt = document.createElement('option');
       opt.textContent = a.name + ' (' + fmtF(a.vins) + ' VINs)';
@@ -609,9 +687,9 @@ function rFlow(rows, allRows){
     dmsDiv.appendChild(dmsLabel);
     var dmsSel = document.createElement('select');
     dmsSel.style.cssText = 'width:100%;border:1px solid #dadce0;border-radius:6px;padding:6px 10px;font-size:12px;color:#202124;background:#fff;outline:none;cursor:pointer';
-    var dmsOpt0 = document.createElement('option');
-    dmsOpt0.textContent = '-- Select DMS --';
-    dmsSel.appendChild(dmsOpt0);
+    var d0 = document.createElement('option');
+    d0.textContent = '-- Select DMS --';
+    dmsSel.appendChild(d0);
     dmsEntries.forEach(function(e){
       var opt = document.createElement('option');
       opt.textContent = e[0] + ' (' + fmtF(e[1]) + ' VINs)';
@@ -624,14 +702,11 @@ function rFlow(rows, allRows){
     cont.appendChild(card);
   });
 
-  // Update subtitle
   var flowSub = document.getElementById('flowsub');
   if(flowSub){
-    var t100 = fm['100']?fm['100'].vins:0;
-    var a100 = fm['100']?Object.keys(fm['100'].accounts).length:0;
-    var t50  = fm['50'] ?fm['50'].vins :0;
-    var a50  = fm['50'] ?Object.keys(fm['50'].accounts).length:0;
-    flowSub.textContent = 'Flow 100: '+fmtF(t100)+' VINs | '+a100+' Accounts  ||  Flow 50: '+fmtF(t50)+' VINs | '+a50+' Accounts';
+    var a100 = fm['100'] ? Object.keys(fm['100'].accounts).length : 0;
+    var a50  = fm['50']  ? Object.keys(fm['50'].accounts).length  : 0;
+    flowSub.textContent = 'Flow 100: '+fmtF(fm['100']?fm['100'].vins:0)+' VINs | '+a100+' Accounts  ||  Flow 50: '+fmtF(fm['50']?fm['50'].vins:0)+' VINs | '+a50+' Accounts';
   }
 }
 
