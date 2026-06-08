@@ -70,7 +70,7 @@ body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-hei
 .hb{flex:1;height:8px;background:#f1f3f4;border-radius:4px;overflow:hidden}
 .hf{height:100%;border-radius:4px;transition:width .5s}
 .hv{font-size:11px;color:#5f6368;width:46px;text-align:right;flex-shrink:0}
-.lw{height:200px;width:100%}
+.lw{height:320px;width:100%}
 svg.ls{width:100%;height:100%}
 .tc{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #e8eaed;cursor:pointer;border-radius:6px;transition:background .15s}
 .tc:hover{background:#f8f9fa}.tc:last-child{border-bottom:none}
@@ -794,7 +794,7 @@ function rDonut(rows){
 function rLine(){
   if(!MONTHLY.length)return;
   var svg=document.getElementById('lsvg');
-  var W=svg.clientWidth||700, H=280, pad={t:20,r:28,b:30,l:52};
+  var W=svg.clientWidth||700, H=320, pad={t:24,r:28,b:34,l:58};
   var cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
   svg.setAttribute('viewBox','0 0 '+W+' '+H);
 
@@ -806,78 +806,77 @@ function rLine(){
     {key:'dms_dl',     c:'#f29900', l:'DMS DL'}
   ];
 
-  // Use separate max for top line vs bottom cluster for better scaling
-  var maxV = Math.max.apply(null, MONTHLY.map(function(m){ return m.vins; }));
-  var n = MONTHLY.length;
-  function x(i){ return pad.l + (n>1 ? i/(n-1) : 0.5) * cW; }
-  function y(v){ return pad.t + (1 - v/maxV) * cH; }
+  var maxV=Math.max.apply(null,MONTHLY.map(function(m){return m.vins;}));
+  var n=MONTHLY.length;
+  function x(i){return pad.l+(n>1?i/(n-1):0.5)*cW;}
+  function y(v){return pad.t+(1-v/maxV)*cH;}
 
-  var html = '';
+  var html='';
 
   // Grid lines
-  for(var g=0;g<=4;g++){
-    var yg = pad.t + (g/4)*cH;
-    html += '<line x1="'+pad.l+'" y1="'+yg+'" x2="'+(pad.l+cW)+'" y2="'+yg+'" stroke="#e8eaed" stroke-width="1"/>';
-    html += '<text x="'+(pad.l-5)+'" y="'+(yg+4)+'" text-anchor="end" font-size="9" fill="#9aa0a6">'+fmt(Math.round(maxV*(1-g/4)))+'</text>';
+  for(var g=0;g<=5;g++){
+    var yg=pad.t+(g/5)*cH;
+    html+='<line x1="'+pad.l+'" y1="'+yg+'" x2="'+(pad.l+cW)+'" y2="'+yg+'" stroke="#e8eaed" stroke-width="1"/>';
+    html+='<text x="'+(pad.l-7)+'" y="'+(yg+4)+'" text-anchor="end" font-size="10" fill="#9aa0a6">'+fmt(Math.round(maxV*(1-g/5)))+'</text>';
   }
 
   // X labels
   MONTHLY.forEach(function(m,i){
-    html += '<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9" fill="#9aa0a6">'+m.m+'</text>';
+    html+='<text x="'+x(i)+'" y="'+(H-8)+'" text-anchor="middle" font-size="10" fill="#9aa0a6">'+m.m+'</text>';
   });
 
-  // Draw all lines
+  // Draw lines first
   series.forEach(function(s){
-    html += '<polyline points="'+MONTHLY.map(function(m,i){ return x(i)+','+y(m[s.key]); }).join(' ')+'" fill="none" stroke="'+s.c+'" stroke-width="2" stroke-linejoin="round"/>';
+    html+='<polyline points="'+MONTHLY.map(function(m,i){return x(i)+','+y(m[s.key]);}).join(' ')+'" fill="none" stroke="'+s.c+'" stroke-width="2.5" stroke-linejoin="round"/>';
   });
 
-  // Draw dots + labels
-  // Label placement: for each point, put label directly above with fixed per-series offset
-  // Series 0 (vins): label 12px above dot
-  // Series 1-4 (clustered): alternate above/below + small horizontal bg rect for readability
-  series.forEach(function(s, si){
-    MONTHLY.forEach(function(m, i){
-      var cx = x(i);
-      var cy = y(m[s.key]);
-      var val = fmt(m[s.key]);
+  // Labels + dots - per column, sort by Y and spread apart
+  MONTHLY.forEach(function(m,i){
+    var cx=x(i);
 
-      // Label Y: alternate above and below for bottom 4 series to reduce overlap
-      var labelY;
-      if(si === 0){
-        labelY = cy - 10;
-      } else {
-        // Spread: si=1 above, si=2 above+more, si=3 below, si=4 below+more
-        var offsets = [0, -10, -20, 10, 20];
-        labelY = cy + offsets[si];
-      }
+    // Sort series by cy value for this column
+    var pts=series.map(function(s,si){
+      return {si:si, cy:y(m[s.key]), val:m[s.key], color:s.c};
+    }).sort(function(a,b){return a.cy-b.cy;});
 
-      // Clamp to chart
-      if(labelY < pad.t + 7) labelY = pad.t + 7;
-      if(labelY > H - pad.b - 5) labelY = H - pad.b - 5;
+    // Assign label Y positions - try above dot first, push apart if too close
+    var minGap=13;
+    var labelYs=pts.map(function(p){return p.cy-11;});
 
-      // Small white background behind label for readability
-      var tw = val.length * 5;
-      html += '<rect x="'+(cx-tw/2-1)+'" y="'+(labelY-7)+'" width="'+(tw+2)+'" height="9" fill="white" fill-opacity="0.75" rx="1"/>';
-      html += '<text x="'+cx+'" y="'+labelY+'" text-anchor="middle" font-size="7.5" fill="'+s.c+'" font-weight="700">'+val+'</text>';
+    // Push apart (top to bottom)
+    for(var k=1;k<labelYs.length;k++){
+      if(labelYs[k]-labelYs[k-1]<minGap) labelYs[k]=labelYs[k-1]+minGap;
+    }
+    // Clamp
+    for(var k=0;k<labelYs.length;k++){
+      if(labelYs[k]<pad.t+8) labelYs[k]=pad.t+8;
+      if(labelYs[k]>H-pad.b-6) labelYs[k]=H-pad.b-6;
+    }
 
-      // Dot on top
-      html += '<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+s.c+'" stroke="#fff" stroke-width="1.5" style="cursor:pointer" data-mi="'+i+'" data-si="'+si+'"/>';
+    pts.forEach(function(p,k){
+      var lbl=fmt(p.val);
+      var tw=lbl.length*5.5+4;
+      // White background behind label
+      html+='<rect x="'+(cx-tw/2)+'" y="'+(labelYs[k]-9)+'" width="'+tw+'" height="11" fill="white" fill-opacity="0.8" rx="2"/>';
+      html+='<text x="'+cx+'" y="'+labelYs[k]+'" text-anchor="middle" font-size="9" fill="'+p.color+'" font-weight="700">'+lbl+'</text>';
+      // Dot
+      html+='<circle cx="'+cx+'" cy="'+p.cy+'" r="5" fill="'+p.color+'" stroke="#fff" stroke-width="2" style="cursor:pointer" data-mi="'+i+'" data-si="'+p.si+'"/>';
     });
   });
 
-  svg.innerHTML = html;
+  svg.innerHTML=html;
 
-  document.getElementById('lleg').innerHTML = series.map(function(s){
+  document.getElementById('lleg').innerHTML=series.map(function(s){
     return '<div class="li"><div class="ld" style="background:'+s.c+'"></div>'+s.l+'</div>';
   }).join('');
 
   if(MONTHLY.length)
-    document.getElementById('mrange').textContent = MONTHLY[0].m+' - '+MONTHLY[MONTHLY.length-1].m;
+    document.getElementById('mrange').textContent=MONTHLY[0].m+' - '+MONTHLY[MONTHLY.length-1].m;
 
   svg.querySelectorAll('circle').forEach(function(el){
     var mi=parseInt(el.getAttribute('data-mi'));
     var si=parseInt(el.getAttribute('data-si'));
-    var m=MONTHLY[mi], s=series[si];
+    var m=MONTHLY[mi],s=series[si];
     if(!m||!s)return;
     el.addEventListener('mouseenter',function(e){
       showTip(e,'<b style="color:'+s.c+'">'+s.l+'</b> - '+m.m+'<br>Value: <b>'+fmtF(m[s.key])+'</b>');
@@ -886,11 +885,11 @@ function rLine(){
     el.addEventListener('click',function(){
       openM(m.m+' Monthly',
         '<table>'
-        +mRow('Total VINs', fmtF(m.vins),       '#4285f4')
-        +mRow('Live',       fmtF(m.live)+' ('+pct(m.live,m.vins)+')',              '#34a853')
-        +mRow('Console DL', fmtF(m.console_dl)+' ('+pct(m.console_dl,m.vins)+')', '#1a73e8')
-        +mRow('Console UL', fmtF(m.console_ul)+' ('+pct(m.console_ul,m.vins)+')', '#9334e6')
-        +mRow('DMS DL',     fmtF(m.dms_dl)+' ('+pct(m.dms_dl,m.vins)+')',         '#f29900')
+        +mRow('Total VINs',fmtF(m.vins),'#4285f4')
+        +mRow('Live',fmtF(m.live)+' ('+pct(m.live,m.vins)+')','#34a853')
+        +mRow('Console DL',fmtF(m.console_dl)+' ('+pct(m.console_dl,m.vins)+')','#1a73e8')
+        +mRow('Console UL',fmtF(m.console_ul)+' ('+pct(m.console_ul,m.vins)+')','#9334e6')
+        +mRow('DMS DL',fmtF(m.dms_dl)+' ('+pct(m.dms_dl,m.vins)+')','#f29900')
         +'</table>'
       );
     });
