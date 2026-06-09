@@ -333,56 +333,55 @@ var CUSTOM_URL = '';  // e.g. 'https://sheetdb.io/api/v1/XXXXX?sheet=Data+VIN+Le
 // Fetch
 // -- FETCH --
 function fetchData(){
-  setStatus('wait','Fetching data...');
+  setStatus('wait','Loading data...');
 
   var PUB  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
   var GVIZ = 'https://docs.google.com/spreadsheets/d/1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0/gviz/tq?tqx=out:csv&sheet=Data%20VIN%20Level-1';
   var ts   = Date.now();
 
   var sources = [
-    PUB,
-    GVIZ,
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent(PUB + '&t=' + ts),
-    'https://corsproxy.io/?' + encodeURIComponent(PUB + '&t=' + ts),
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(PUB  + '&t=' + ts),
     'https://api.allorigins.win/raw?url=' + encodeURIComponent(GVIZ + '&t=' + ts),
+    'https://corsproxy.io/?' + encodeURIComponent(PUB  + '&t=' + ts),
     'https://corsproxy.io/?' + encodeURIComponent(GVIZ + '&t=' + ts),
     'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(PUB),
-    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(GVIZ)
+    'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(GVIZ),
+    'https://thingproxy.freeboard.io/fetch/' + encodeURIComponent(PUB),
+    'https://proxy.cors.sh/' + PUB
   ];
 
   var i = 0;
   function next(){
     if(i >= sources.length){
-      setStatus('err','Fetch failed - check sheet is public');
+      setStatus('err', 'Cannot load data');
       showBanner();
       return;
     }
     var url = sources[i++];
-    setStatus('wait','Connecting ' + i + '/' + sources.length + '...');
+    setStatus('wait', 'Loading... (' + i + '/' + sources.length + ')');
 
     var fp = fetch(url, {cache:'no-cache'}).then(function(r){
       if(!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
     });
     var tp = new Promise(function(_,rej){
-      setTimeout(function(){ rej(new Error('timeout')); }, 10000);
+      setTimeout(function(){ rej(new Error('timeout')); }, 12000);
     });
 
     Promise.race([fp, tp])
       .then(function(txt){
         txt = txt.trim();
         if(!txt || txt.length < 200) throw new Error('too short');
-        var rows = txt.split('\n');
-
-        if(rows.length < 3) throw new Error('too few rows');
+        if(txt.split('\n').length < 5) throw new Error('too few rows');
         if(txt.indexOf('Date') === -1 && txt.indexOf('date') === -1) throw new Error('no header');
         loaded(txt);
       })
       .catch(function(e){
-        console.log('src ' + i + ' failed: ' + e.message);
+        console.log('Source ' + i + ' failed: ' + e.message);
         next();
       });
   }
+
   next();
 }
 
