@@ -342,12 +342,11 @@ function fetchData(){
   if(!prog){
     prog = document.createElement('div');
     prog.id = 'fetchProgress';
-    prog.style.cssText = 'background:#e8f0fe;border:1px solid #4285f4;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:#1a73e8;font-family:monospace';
-    var main = document.getElementById('mainArea');
-    if(main) main.insertBefore(prog, main.firstChild);
+    prog.style.cssText = 'position:fixed;top:130px;left:50%;transform:translateX(-50%);background:#e8f0fe;border:2px solid #4285f4;border-radius:10px;padding:14px 24px;font-size:13px;color:#1a73e8;font-family:monospace;z-index:500;box-shadow:0 4px 20px rgba(0,0,0,.15);min-width:400px;text-align:center';
+    document.body.appendChild(prog);
   }
   prog.style.display = 'block';
-  prog.innerHTML = 'Fetching data from Google Sheets...';
+  prog.innerHTML = '<b>Connecting to Google Sheets...</b>';
 
   var PUB  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
   var GVIZ = 'https://docs.google.com/spreadsheets/d/1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0/gviz/tq?tqx=out:csv&sheet=Data%20VIN%20Level-1';
@@ -373,13 +372,10 @@ function fetchData(){
       prog.style.background = '#fce8e6';
       prog.style.borderColor = '#d93025';
       prog.style.color = '#d93025';
-      prog.innerHTML = '<b>All fetch methods failed.</b><br>'
-        + log.map(function(l){ return l; }).join('<br>')
-        + '<br><br><b>Possible causes:</b><br>'
-        + '1. Google Sheet still has "Restrict access" checked<br>'
-        + '2. Sheet is not published as CSV<br>'
-        + '3. Network issue<br>'
-        + '<button onclick="fetchData()" style="margin-top:8px;background:#1a73e8;color:#fff;border:none;border-radius:16px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer">Retry</button>';
+      prog.innerHTML = '<b>Cannot fetch data from Google Sheets</b><br>'
+        + 'Errors: ' + log.slice(-3).join(' | ')
+        + '<br><br>Fix: In Google Sheet go to File > Share > Publish to web > uncheck Restrict access<br>'
+        + '<button onclick="fetchData()" style="margin-top:10px;background:#1a73e8;color:#fff;border:none;border-radius:16px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer">Retry</button>';
       return;
     }
 
