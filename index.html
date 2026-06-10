@@ -468,9 +468,7 @@ function fetchMasterTab(){
 }
 
 function parseMasterTab(text){
-  var lines=text.trim().split(/
-?
-/);
+  var lines=text.trim().split(/\r?\n/);
   if(lines.length<2)return;
   var hdr=splitLine(lines[0]);
   // Find columns: Enterprise Name(A=0), Enterprise ID(B=1), Team ID(C=2), Account sub type(D=3), Input Source(E=4), flow is not in master - ARR is L=11
