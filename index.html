@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
-<link rel="icon" href="data:,">
+<link rel="icon" href="data:,"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Master Catalogue Dashboard v3</title>
+<title>Master Catalogue Dashboard</title>
 <style>
+
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#f0f4f9;--white:#fff;--border:#dadce0;--text:#202124;--t2:#5f6368;--t3:#9aa0a6;--blue:#1a73e8;--green:#1e8e3e;--amber:#f29900;--red:#d93025;--purple:#9334e6}
 body{font-family:Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px}
@@ -107,9 +108,10 @@ table.dt tr:hover td{background:#e8f0fe}
 .mbox table tr:last-child td{border-bottom:none}
 .mcb{background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:7px 20px;font-size:12px;font-weight:700;cursor:pointer;margin-top:14px;float:right}
 .footer{text-align:center;padding:14px;font-size:11px;color:#9aa0a6;border-top:1px solid #e8eaed;margin-top:8px}
+
 </style>
 </head>
-<body>
+
 <nav class="nav">
   <div class="nicon">MC</div>
   <div><div class="ntitle">Master Catalogue Management</div><div class="nsub">VIN Level-1 &middot; Daily Report Dashboard</div></div>
@@ -247,7 +249,9 @@ table.dt tr:hover td{background:#e8f0fe}
     <button class="mcb" onclick="closeM()">Close</button>
   </div>
 </div>
+
 <script>
+
 var RAW=[],DAILY=[],MONTHLY=[],SS={col:'date',dir:-1};
 var PAL=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#00897b','#8d6e63'];
 var COLS=['#4285f4','#34a853','#fbbc04','#ea4335','#9334e6','#129eaf','#fa7b17','#1a73e8','#e8453c','#0f9d58','#f29900','#673ab7'];
@@ -289,7 +293,7 @@ function parseDate(s){if(!s)return null;s=s.trim();var m=s.match(/^(\d{1,2})-([A
 function findCol(hdr,keys,def){for(var k=0;k<keys.length;k++)for(var h=0;h<hdr.length;h++)if(hdr[h].trim().toLowerCase()===keys[k])return h;for(var k=0;k<keys.length;k++)for(var h=0;h<hdr.length;h++)if(hdr[h].trim().toLowerCase().indexOf(keys[k])!==-1)return h;return def;}
 
 function parseCSV(text){
-  var lines=text.trim().split(/\r?\n/);
+  var lines=text.trim().split(/[\r\n]+/);
   if(lines.length<2)return;
   var hdr=splitLine(lines[0]);
   var DC=findCol(hdr,['date'],0),AC=findCol(hdr,['account sub type'],3),EC=findCol(hdr,['dms'],4);
@@ -304,7 +308,7 @@ function parseCSV(text){
     if(!lines[i].trim())continue;
     var c=splitLine(lines[i]);
     var dr=parseDate(c[DC]||'');if(!dr)continue;
-    RAW.push({date:dr,img:parseInt((c[IC]||'0').replace(/[^0-9]/g,''))||0,tp:(c[TC]||'').trim(),at:(c[AC]||'').trim().toUpperCase(),per:(c[PC]||'').trim(),dms:(c[EC]||'').trim(),acc:(function(s){var t=s.trim();return t.replace(/\b\w/g,function(l){return l.toUpperCase();});})(c[NC]||''),seg:(c[SC]||'').trim()||'N/A',flow:(c[FC]||'').trim()||'N/A',eid:(c[EIDC]||'').trim(),tid:(c[TIDC]||'').trim()});
+    RAW.push({date:dr,img:parseInt((c[IC]||'0').replace(/[^0-9]/g,''))||0,tp:(c[TC]||'').trim(),at:(c[AC]||'').trim().toUpperCase(),per:(c[PC]||'').trim(),dms:(c[EC]||'').trim(),acc:(function(s){var t=s.trim();return t.split(' ').map(function(w){return w?w[0].toUpperCase()+w.slice(1):w;}).join(' ');})(c[NC]||''),seg:(c[SC]||'').trim()||'N/A',flow:(c[FC]||'').trim()||'N/A',eid:(c[EIDC]||'').trim(),tid:(c[TIDC]||'').trim()});
   }
   // Build daily aggregates
   var dm={};
@@ -337,7 +341,6 @@ var CUSTOM_URL = '';  // e.g. 'https://sheetdb.io/api/v1/XXXXX?sheet=Data+VIN+Le
 function fetchData(){
   setStatus('wait','Loading data...');
 
-  // Show a visible progress panel
   var prog = document.getElementById('fetchProgress');
   if(!prog){
     prog = document.createElement('div');
@@ -345,23 +348,35 @@ function fetchData(){
     prog.style.cssText = 'position:fixed;top:130px;left:50%;transform:translateX(-50%);background:#e8f0fe;border:2px solid #4285f4;border-radius:10px;padding:14px 24px;font-size:13px;color:#1a73e8;font-family:monospace;z-index:500;box-shadow:0 4px 20px rgba(0,0,0,.15);min-width:400px;text-align:center';
     document.body.appendChild(prog);
   }
-  prog.style.display = 'block';
-  prog.innerHTML = '<b>Connecting to Google Sheets...</b>';
+  prog.style.background='#e8f0fe';
+  prog.style.borderColor='#4285f4';
+  prog.style.color='#1a73e8';
+  prog.style.display='block';
+  prog.innerHTML='<b>Connecting to Google Sheets...</b>';
 
   var PUB  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQO1nH-F82hf-m17t0lo_qMY0-LMaESpVMTZN1ZqF9WzCVcjI8qIELF0u0T6YpasiuAg4hAcUGKVQ6z/pub?gid=1350286518&single=true&output=csv';
   var GVIZ = 'https://docs.google.com/spreadsheets/d/1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0/gviz/tq?tqx=out:csv&sheet=Data%20VIN%20Level-1';
-  var ts   = Date.now();
+  var ts = Date.now();
 
-  var sources = [
-    {label:'allorigins+PUB',  url:'https://api.allorigins.win/raw?url=' + encodeURIComponent(PUB  + '&t=' + ts)},
-    {label:'allorigins+GVIZ', url:'https://api.allorigins.win/raw?url=' + encodeURIComponent(GVIZ + '&t=' + ts)},
-    {label:'corsproxy+PUB',   url:'https://corsproxy.io/?' + encodeURIComponent(PUB  + '&t=' + ts)},
-    {label:'corsproxy+GVIZ',  url:'https://corsproxy.io/?' + encodeURIComponent(GVIZ + '&t=' + ts)},
-    {label:'codetabs+PUB',    url:'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(PUB)},
-    {label:'codetabs+GVIZ',   url:'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(GVIZ)},
-    {label:'thingproxy+PUB',  url:'https://thingproxy.freeboard.io/fetch/' + encodeURIComponent(PUB)},
-    {label:'cors.sh+PUB',     url:'https://proxy.cors.sh/' + PUB}
-  ];
+  var APPS_SCRIPT_URL = '';
+
+  var sources = [];
+  if(APPS_SCRIPT_URL) sources.push({label:'AppsScript', url:APPS_SCRIPT_URL+'?t='+ts});
+
+  sources = sources.concat([
+    {label:'allorigins+PUB',   url:'https://api.allorigins.win/raw?url='+encodeURIComponent(PUB+'&t='+ts)},
+    {label:'allorigins+GVIZ',  url:'https://api.allorigins.win/raw?url='+encodeURIComponent(GVIZ+'&t='+ts)},
+    {label:'corsproxy+PUB',    url:'https://corsproxy.io/?'+encodeURIComponent(PUB+'&t='+ts)},
+    {label:'corsproxy+GVIZ',   url:'https://corsproxy.io/?'+encodeURIComponent(GVIZ+'&t='+ts)},
+    {label:'codetabs+PUB',     url:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(PUB)},
+    {label:'codetabs+GVIZ',    url:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(GVIZ)},
+    {label:'jsonp+GVIZ',       url:'https://docs.google.com/spreadsheets/d/1_IwAbspIesz7p3VQ75MWPu-LkUQTvdE5yvamt816db0/gviz/tq?tqx=out:csv&sheet=Data%20VIN%20Level-1&t='+ts},
+    {label:'jsdelivr+PUB',     url:'https://cdn.jsdelivr.net/gh/sumitrana-dotcom/Master-Catalogue@main/data.csv'},
+    {label:'crossorigin+PUB',  url:'https://crossorigin.me/'+PUB},
+    {label:'thingproxy+PUB',   url:'https://thingproxy.freeboard.io/fetch/'+encodeURIComponent(PUB)},
+    {label:'cors.sh+PUB',      url:'https://proxy.cors.sh/'+PUB},
+    {label:'nocors+PUB',       url:'https://nocors.vercel.app/api?url='+encodeURIComponent(PUB)}
+  ]);
 
   var idx = 0;
   var log = [];
@@ -369,42 +384,54 @@ function fetchData(){
   function next(){
     if(idx >= sources.length){
       setStatus('err','All '+sources.length+' methods failed');
-      prog.style.background = '#fce8e6';
-      prog.style.borderColor = '#d93025';
-      prog.style.color = '#d93025';
-      prog.innerHTML = '<b>Cannot fetch data from Google Sheets</b><br>'
-        + 'Errors: ' + log.slice(-3).join(' | ')
-        + '<br><br>Fix: In Google Sheet go to File > Share > Publish to web > uncheck Restrict access<br>'
-        + '<button onclick="fetchData()" style="margin-top:10px;background:#1a73e8;color:#fff;border:none;border-radius:16px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer">Retry</button>';
+      prog.style.background='#fce8e6';
+      prog.style.borderColor='#d93025';
+      prog.style.color='#d93025';
+      var pb=document.createElement('div');
+      var pt=document.createElement('b');
+      pt.textContent='Google Sheet blocked (HTTP 403) - '+log.slice(-2).join(' | ');
+      pb.appendChild(pt);
+      pb.appendChild(document.createElement('br'));
+      pb.appendChild(document.createElement('br'));
+      var pf=document.createElement('div');
+      pf.style.cssText='background:#fff;border-radius:6px;padding:10px;margin:6px 0;text-align:left;font-size:12px;line-height:1.8';
+      pf.innerHTML='Fix: Google Sheet > File > Share > Publish to web > Stop publishing > Publish again > Uncheck Restrict access > Close';
+      pb.appendChild(pf);
+      var pr=document.createElement('button');
+      pr.style.cssText='background:#1a73e8;color:#fff;border:none;border-radius:16px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px';
+      pr.textContent='Retry';
+      pr.onclick=function(){fetchData();};
+      pb.appendChild(pr);
+      prog.innerHTML='';
+      prog.appendChild(pb);
       return;
     }
 
     var src = sources[idx++];
-    setStatus('wait','Trying ' + src.label + '...');
-    prog.innerHTML = 'Trying method ' + idx + '/' + sources.length + ': <b>' + src.label + '</b><br>'
-      + (log.length ? 'Failed: ' + log.join(', ') : '');
+    setStatus('wait','Loading...');
+    prog.innerHTML = 'Trying ' + idx + '/' + sources.length + ': <b>' + src.label + '</b>'
+      + (log.length ? '<br><small>Failed: '+log.slice(-3).join(', ')+'</small>' : '');
 
-    var fp = fetch(src.url, {cache:'no-cache'})
+    var fp = fetch(src.url, {cache:'no-cache', mode:'cors'})
       .then(function(r){
-        if(!r.ok) throw new Error('HTTP ' + r.status);
+        if(!r.ok) throw new Error('HTTP '+r.status);
         return r.text();
       });
     var tp = new Promise(function(_,rej){
-      setTimeout(function(){ rej(new Error('timeout 12s')); }, 12000);
+      setTimeout(function(){ rej(new Error('timeout')); }, 12000);
     });
 
     Promise.race([fp, tp])
       .then(function(txt){
         txt = (txt||'').trim();
-        if(txt.length < 200) throw new Error('response too short (' + txt.length + ' chars)');
+        if(txt.length < 200) throw new Error('too short: '+txt.length);
         if(txt.split('\n').length < 5) throw new Error('too few rows');
-        if(txt.indexOf('Date') === -1 && txt.indexOf('date') === -1) throw new Error('no Date column in header');
-        // SUCCESS
+        if(txt.indexOf('Date')===-1 && txt.indexOf('date')===-1) throw new Error('no header');
         prog.style.display = 'none';
         loaded(txt);
       })
       .catch(function(e){
-        log.push(src.label + '(' + e.message + ')');
+        log.push(src.label+'('+e.message+')');
         next();
       });
   }
@@ -468,7 +495,7 @@ function fetchMasterTab(){
 }
 
 function parseMasterTab(text){
-  var lines=text.trim().split(/\r?\n/);
+  var lines=text.trim().split(/[\r\n]+/);
   if(lines.length<2)return;
   var hdr=splitLine(lines[0]);
   // Find columns: Enterprise Name(A=0), Enterprise ID(B=1), Team ID(C=2), Account sub type(D=3), Input Source(E=4), flow is not in master - ARR is L=11
@@ -1161,6 +1188,7 @@ function showFixBanner(){
   var main = document.getElementById('mainArea');
   if(main) main.insertBefore(div, main.firstChild);
 }
+
 </script>
 </body>
 </html>
